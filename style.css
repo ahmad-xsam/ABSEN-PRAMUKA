@@ -733,7 +733,7 @@ body {
 
 .print-doc-grid img {
     width: 49%;
-    height: 150px;
+    height: 165px;
     object-fit: cover;
     border: 1px solid #000000;
     display: block;
@@ -758,7 +758,7 @@ body {
         padding: 10mm;
     }
     @page {
-        size: A4 portrait;
+        size: A4 landscape;
         margin: 10mm;
     }
 }
