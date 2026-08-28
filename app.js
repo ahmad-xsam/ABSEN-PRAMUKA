@@ -727,10 +727,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     foto1.addEventListener('change', async (e) => {
         if (e.target.files && e.target.files[0]) {
             try {
+                placeholder1.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> <span>Memproses Foto 1...</span>';
                 const base64 = await compressImage(e.target.files[0]);
                 setPhotoPreview(1, base64);
             } catch (err) {
                 alert('Gagal memproses gambar foto 1.');
+                resetUploader(1);
             }
         }
     });
@@ -739,10 +741,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     foto2.addEventListener('change', async (e) => {
         if (e.target.files && e.target.files[0]) {
             try {
+                placeholder2.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> <span>Memproses Foto 2...</span>';
                 const base64 = await compressImage(e.target.files[0]);
                 setPhotoPreview(2, base64);
             } catch (err) {
                 alert('Gagal memproses gambar foto 2.');
+                resetUploader(2);
             }
         }
     });
@@ -763,29 +767,68 @@ document.addEventListener('DOMContentLoaded', async () => {
     formLatihan.addEventListener('submit', async (e) => {
         e.preventDefault();
 
+        const btnSimpan = document.getElementById('btnSimpan');
+        const originalBtnHtml = btnSimpan ? btnSimpan.innerHTML : '<i class="fa-solid fa-floppy-disk"></i> Simpan Data Latihan';
+
+        if (!inputTanggal.value) {
+            alert('Tanggal Latihan belum diisi.');
+            inputTanggal.focus();
+            return;
+        }
+
+        if (!inputTahunPelajaran.value.trim()) {
+            alert('Tahun Pelajaran belum diisi.');
+            inputTahunPelajaran.focus();
+            return;
+        }
+
+        if (!inputUraian.value.trim()) {
+            alert('Uraian Kegiatan Latihan belum diisi.');
+            inputUraian.focus();
+            return;
+        }
+
         if (!tempFoto1 || !tempFoto2) {
             alert('Wajib melampirkan 2 Foto Dokumentasi untuk setiap kegiatan latihan.');
             return;
         }
 
-        const itemData = {
-            tanggal: inputTanggal.value,
-            tahunPelajaran: inputTahunPelajaran.value.trim(),
-            uraian: inputUraian.value.trim(),
-            foto1: tempFoto1,
-            foto2: tempFoto2
-        };
+        try {
+            if (btnSimpan) {
+                btnSimpan.disabled = true;
+                btnSimpan.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Menyimpan Data...';
+            }
 
-        if (editId.value) {
-            itemData.id = editId.value;
-        }
+            const itemData = {
+                tanggal: inputTanggal.value,
+                tahunPelajaran: inputTahunPelajaran.value.trim(),
+                uraian: inputUraian.value.trim(),
+                foto1: tempFoto1,
+                foto2: tempFoto2
+            };
 
-        const saveResult = await DatabaseService.save(itemData);
-        closeModal();
-        if (saveResult && !saveResult.isOnline) {
-            alert('PERHATIAN: Perangkat ini belum terhubung ke Server Cloud MongoDB Vercel!\n\nData tersimpan di memori HP/Laptop ini saja. Agar data sinkron di semua HP & Laptop, pastikan kedua perangkat membuka Web URL Vercel yang sama (contoh: https://absen-pramuka.vercel.app), bukan membuka file HTML lokal!');
+            if (editId.value) {
+                itemData.id = editId.value;
+            }
+
+            const saveResult = await DatabaseService.save(itemData);
+            closeModal();
+
+            if (saveResult && saveResult.isOnline) {
+                alert('✓ Data Latihan Berhasil Disimpan ke MongoDB Cloud!');
+            } else {
+                alert('PERHATIAN: Perangkat ini belum terhubung ke Server Cloud MongoDB Vercel!\n\nData tersimpan di memori HP/Laptop ini saja. Agar data sinkron di semua HP & Laptop, pastikan kedua perangkat membuka Web URL Vercel yang sama (contoh: https://absen-pramuka.vercel.app), bukan membuka file HTML lokal!');
+            }
+            await loadData();
+        } catch (err) {
+            console.error("Gagal menyimpan data:", err);
+            alert('Gagal menyimpan data: ' + (err.message || err));
+        } finally {
+            if (btnSimpan) {
+                btnSimpan.disabled = false;
+                btnSimpan.innerHTML = originalBtnHtml;
+            }
         }
-        await loadData();
     });
 
     // PDF Download Button
