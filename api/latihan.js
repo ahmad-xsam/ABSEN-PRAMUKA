@@ -8,10 +8,10 @@ async function connectToDatabase() {
         return cachedDb;
     }
     
-    const validEnvUri = (process.env.MONGODB_URI && !process.env.MONGODB_URI.includes('cluster0.mongodb.net')) ? process.env.MONGODB_URI : null;
+    const envUri = (process.env.MONGODB_URI && process.env.MONGODB_URI.trim().length > 0) ? process.env.MONGODB_URI.trim() : null;
 
     const uriList = [
-        validEnvUri,
+        envUri,
         "mongodb+srv://ahmadsamsudin27_db_user:pramukasordu123@cluster0.pe488oz.mongodb.net/pramuka_sordu?retryWrites=true&w=majority&appName=Cluster0",
         "mongodb+srv://ahmadsamsudin27_db_user:ahmadsamsudin27@cluster0.pe488oz.mongodb.net/pramuka_sordu?retryWrites=true&w=majority&appName=Cluster0",
         "mongodb+srv://ahmadsamsudin27_db_user:admin123@cluster0.pe488oz.mongodb.net/pramuka_sordu?retryWrites=true&w=majority&appName=Cluster0",
@@ -23,7 +23,7 @@ async function connectToDatabase() {
         try {
             const db = await mongoose.connect(uri, { 
                 bufferCommands: false,
-                serverSelectionTimeoutMS: 5000
+                serverSelectionTimeoutMS: 4000
             });
             cachedDb = db;
             return db;

@@ -19,7 +19,9 @@ const DEFAULT_SCOUT_PHOTO = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.o
 class DatabaseService {
     static async getAllCloud() {
         try {
-            const res = await fetch(`/api/latihan?_t=${Date.now()}`);
+            const res = await fetch(`/api/latihan?_t=${Date.now()}`, {
+                headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
+            });
             if (res.ok) {
                 const json = await res.json();
                 if (json.success && Array.isArray(json.data)) {
@@ -29,45 +31,53 @@ class DatabaseService {
                     }));
                     return { isOnline: true, data: items };
                 }
+            } else {
+                console.warn("MongoDB Cloud API response not OK:", res.status, res.statusText);
             }
         } catch (err) {
-            console.warn("MongoDB Cloud API offline or not configured yet:", err);
+            console.warn("MongoDB Cloud API fetch failed:", err);
         }
         return { isOnline: false, data: null };
     }
 
     static async getAll() {
         const cloudResult = await this.getAllCloud();
-        let items = [];
+        
         if (cloudResult.isOnline && cloudResult.data) {
-            items = cloudResult.data;
-            for (const item of items) {
+            // 1. Sync local IndexedDB cache with fresh cloud items
+            await this.clearAllLocal();
+            for (const item of cloudResult.data) {
                 await this.saveLocal(item);
             }
-        } else {
-            items = await this.getAllLocal();
-        }
 
-        // Merge local unsynced items if any exist
-        const localItems = await this.getAllLocal();
-        if (localItems && localItems.length > 0) {
-            const map = new Map();
-            items.forEach(i => map.set(String(i.id || i._id), i));
-            localItems.forEach(i => {
-                const key = String(i.id || i._id);
-                if (!map.has(key)) {
-                    map.set(key, i);
+            // 2. Check for any unsynced local records created offline and upload them to MongoDB Cloud
+            const localItems = await this.getAllLocal();
+            const unsynced = localItems.filter(i => String(i.id || '').startsWith('loc_'));
+            if (unsynced.length > 0) {
+                for (const item of unsynced) {
+                    console.log("Auto-migrating offline local item to MongoDB Cloud:", item);
+                    const syncRes = await this.save(item);
+                    if (syncRes.isCloud) {
+                        await this.deleteLocal(item.id);
+                    }
                 }
-            });
-            items = Array.from(map.values());
+                const refreshed = await this.getAllCloud();
+                if (refreshed.isOnline && refreshed.data) {
+                    return refreshed.data;
+                }
+            }
+
+            return cloudResult.data;
         }
 
-        return items;
+        // Fallback to local storage if cloud is unreachable
+        return await this.getAllLocal();
     }
 
     static async save(item) {
         let isCloudSaved = false;
         let savedItem = { ...item };
+        let cloudError = null;
 
         try {
             const isValidMongoId = item.id && /^[0-9a-fA-F]{24}$/.test(String(item.id));
@@ -95,26 +105,34 @@ class DatabaseService {
                 if (json.success && json.data) {
                     savedItem = { ...json.data, id: json.data._id || json.data.id };
                     isCloudSaved = true;
+                } else {
+                    cloudError = (json && json.error) ? json.error : 'Format respons server tidak valid';
                 }
+            } else {
+                const errText = await res.text();
+                cloudError = `HTTP ${res.status}: ${res.statusText} ${errText}`;
             }
         } catch (err) {
-            console.warn("Could not save to MongoDB Cloud API, falling back to device memory:", err);
+            cloudError = err.message || 'Koneksi jaringan terputus';
+            console.warn("Could not save to MongoDB Cloud API:", err);
         }
 
-        // Always ensure local storage is updated so user data is never lost
+        // Always update local IndexedDB cache as well
         if (!savedItem.id) {
             savedItem.id = 'loc_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6);
         }
         await this.saveLocal(savedItem);
 
-        return { isCloud: isCloudSaved, data: savedItem };
+        return { isCloud: isCloudSaved, error: cloudError, data: savedItem };
     }
 
     static async delete(id) {
         try {
             await fetch(`/api/latihan?id=${id}`, { method: 'DELETE' });
+            await this.deleteLocal(id);
         } catch (err) {
             console.error("Error deleting from MongoDB REST API:", err);
+            await this.deleteLocal(id);
         }
     }
 
@@ -253,7 +271,7 @@ function formatTanggalIndo(dateStr) {
 }
 
 // Helper: Compress and Convert Image File to Base64
-function compressImage(file, maxWidth = 800, quality = 0.82) {
+function compressImage(file, maxWidth = 550, quality = 0.68) {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = (e) => {
@@ -295,25 +313,21 @@ async function loadData() {
     let isCloudActive = false;
 
     try {
+        latihanList = await DatabaseService.getAll();
         const cloudRes = await DatabaseService.getAllCloud();
-        if (cloudRes.isOnline && cloudRes.data) {
-            latihanList = cloudRes.data;
-            isCloudActive = true;
-        } else {
-            latihanList = await DatabaseService.getAllLocal();
-        }
+        isCloudActive = cloudRes.isOnline;
     } catch (e) {
         latihanList = await DatabaseService.getAllLocal();
     }
 
     if (syncStatus) {
         if (isCloudActive) {
-            syncStatus.innerHTML = '<i class="fa-solid fa-circle" style="color: #2E7D32;"></i> MongoDB Atlas Cloud Active (Live Synchronized)';
+            syncStatus.innerHTML = '<i class="fa-solid fa-circle" style="color: #2E7D32;"></i> Real-time MongoDB Active (Multi-Perangkat)';
             syncStatus.style.backgroundColor = '#E8F5E9';
             syncStatus.style.color = '#2E7D32';
             syncStatus.style.borderColor = '#A5D6A7';
         } else {
-            syncStatus.innerHTML = '<i class="fa-solid fa-circle-exclamation" style="color: #E65100;"></i> MongoDB Atlas Standby (Set MONGODB_URI di Vercel)';
+            syncStatus.innerHTML = '<i class="fa-solid fa-circle-exclamation" style="color: #E65100;"></i> MongoDB Atlas Standby (Lokal)';
             syncStatus.style.backgroundColor = '#FFF3E0';
             syncStatus.style.color = '#E65100';
             syncStatus.style.borderColor = '#FFE0B2';
@@ -862,9 +876,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             closeModal();
 
             if (saveResult && saveResult.isCloud) {
-                alert('✓ Data Latihan Berhasil Disimpan ke MongoDB Cloud!');
+                alert('✓ DATA LATIHAN BERHASIL DISIMPAN KE MONGODB CLOUD ONLINE!\n\nData telah langsung terupdate dan dapat dilihat/diakses di seluruh perangkat (HP & Laptop) secara real-time.');
             } else {
-                alert('✓ Data Latihan Berhasil Disimpan di Perangkat!\n\nCatatan: Untuk sinkronisasi cloud multi-perangkat (HP & Laptop), pastikan MONGODB_URI di Vercel Settings -> Environment Variables sudah diisi dengan Connection String MongoDB Atlas milik Anda.');
+                const cause = saveResult.error ? ('Detail error: ' + saveResult.error) : 'Penyebab: Serverless API tidak dapat menjangkau MongoDB Atlas';
+                alert('⚠️ PERHATIAN: Data disimpan sementara di Perangkat ini (Lokal).\n\n' + cause + '\n\nLangkah penyelesaian agar tersinkronisasi ke semua HP/Laptop:\n1. Pastikan variabel MONGODB_URI di Vercel Settings -> Environment Variables sudah diisi.\n2. Di Dashboard MongoDB Atlas -> Network Access, pastikan IP 0.0.0.0/0 (Allow Access from Anywhere) sudah ditambahkan.');
             }
             await loadData();
         } catch (err) {
