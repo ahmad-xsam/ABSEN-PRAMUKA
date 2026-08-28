@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aplikasi Rekap Latihan Pramuka Sordu</title>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- html2pdf.js for Client-Side PDF Generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+    <!-- Stylesheet -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- App Container -->
+    <div class="app-container">
+        
+        <!-- Sidebar / Navigation Header -->
+        <header class="app-header">
+            <div class="header-brand">
+                <div class="brand-logo">
+                    <i class="fa-solid fa-compass"></i>
+                </div>
+                <div class="brand-text">
+                    <h1>E-Rekap Pramuka Sordu</h1>
+                    <p>Sistem Informasi & Laporan Latihan Ekstrakurikuler Pramuka</p>
+                </div>
+            </div>
+            <div class="header-actions">
+                <button class="btn btn-outline" id="btnBackup" title="Ekspor Data JSON">
+                    <i class="fa-solid fa-download"></i> Backup Data
+                </button>
+                <button class="btn btn-outline" id="btnRestore" title="Impor Data JSON">
+                    <i class="fa-solid fa-upload"></i> Restore
+                </button>
+                <input type="file" id="fileRestoreInput" accept=".json" style="display: none;">
+                <button class="btn btn-primary" id="btnTambahLatihan">
+                    <i class="fa-solid fa-plus"></i> Tambah Latihan
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Dashboard View -->
+        <main class="dashboard-content">
+            
+            <!-- Statistics Banner -->
+            <section class="stats-row">
+                <div class="stat-card">
+                    <div class="stat-icon bg-amber">
+                        <i class="fa-solid fa-calendar-check"></i>
+                    </div>
+                    <div class="stat-info">
+                        <span class="stat-value" id="statTotalPertemuan">0</span>
+                        <span class="stat-label">Total Pertemuan Latihan</span>
+                    </div>
+                </div>
+
+                <div class="stat-card">
+                    <div class="stat-icon bg-emerald">
+                        <i class="fa-solid fa-images"></i>
+                    </div>
+                    <div class="stat-info">
+                        <span class="stat-value" id="statTotalFoto">0</span>
+                        <span class="stat-label">Dokumentasi Foto Tersimpan</span>
+                    </div>
+                </div>
+
+                <div class="stat-card">
+                    <div class="stat-icon bg-brown">
+                        <i class="fa-solid fa-file-invoice"></i>
+                    </div>
+                    <div class="stat-info">
+                        <span class="stat-value" id="statBulanAktif">Agustus 2026</span>
+                        <span class="stat-label">Periode Rekap Aktif</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Filter & Print Action Controls -->
+            <section class="filter-card">
+                <div class="filter-group">
+                    <div class="input-field">
+                        <label for="filterBulan"><i class="fa-solid fa-filter"></i> Pilih Bulan Rekap</label>
+                        <select id="filterBulan">
+                            <option value="01">Januari</option>
+                            <option value="02">Februari</option>
+                            <option value="03">Maret</option>
+                            <option value="04">April</option>
+                            <option value="05">Mei</option>
+                            <option value="06">Juni</option>
+                            <option value="07">Juli</option>
+                            <option value="08" selected>Agustus</option>
+                            <option value="09">September</option>
+                            <option value="10">Oktober</option>
+                            <option value="11">November</option>
+                            <option value="12">Desember</option>
+                        </select>
+                    </div>
+
+                    <div class="input-field">
+                        <label for="filterTahunPelajaran"><i class="fa-solid fa-graduation-cap"></i> Tahun Pelajaran</label>
+                        <input type="text" id="filterTahunPelajaran" value="2026-2027" placeholder="Contoh: 2026-2027">
+                    </div>
+
+                    <div class="input-field">
+                        <label for="searchQuery"><i class="fa-solid fa-magnifying-glass"></i> Cari Uraian Kegiatan</label>
+                        <input type="text" id="searchQuery" placeholder="Cari kegiatan...">
+                    </div>
+                </div>
+
+                <div class="export-actions">
+                    <button class="btn btn-emerald" id="btnUnduhPDF">
+                        <i class="fa-solid fa-file-pdf"></i> Unduh PDF Laporan
+                    </button>
+                    <button class="btn btn-secondary" id="btnCetak">
+                        <i class="fa-solid fa-print"></i> Cetak Dokumen
+                    </button>
+                </div>
+            </section>
+
+            <!-- Interactive Recap Table Card -->
+            <section class="table-card">
+                <div class="table-header">
+                    <h2><i class="fa-solid fa-list-check"></i> Daftar Rekap Latihan Pramuka Sordu</h2>
+                    <span class="badge" id="badgeJumlahData">0 Data</span>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 50px;">No</th>
+                                <th style="width: 220px;">Hari, Tanggal</th>
+                                <th>Uraian Kegiatan</th>
+                                <th style="width: 320px;">Dokumentasi (2 Foto)</th>
+                                <th style="width: 120px;" class="no-print-col">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabelRecapBody">
+                            <!-- Rows rendered dynamically via app.js -->
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div id="emptyState" class="empty-state">
+                    <i class="fa-regular fa-folder-open"></i>
+                    <h3>Belum Ada Data Latihan</h3>
+                    <p>Silakan klik tombol <strong>"Tambah Latihan"</strong> untuk memasukkan data latihan dan 2 foto dokumentasinya.</p>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Modal Form Tambah / Edit Latihan -->
+    <div class="modal-backdrop" id="modalForm">
+        <div class="modal-dialog">
+            <div class="modal-header">
+                <h3 id="modalTitle"><i class="fa-solid fa-calendar-plus"></i> Tambah Data Latihan</h3>
+                <button class="btn-close" id="btnCloseModal">&times;</button>
+            </div>
+            <form id="formLatihan">
+                <input type="hidden" id="editId">
+                <div class="modal-body">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="inputTanggal">Tanggal Latihan <span class="required">*</span></label>
+                            <input type="date" id="inputTanggal" required>
+                            <small class="field-hint" id="hintHariFormatted">Otomatis: Pilih tanggal di atas</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="inputTahunPelajaran">Tahun Pelajaran <span class="required">*</span></label>
+                            <input type="text" id="inputTahunPelajaran" value="2026-2027" required placeholder="Contoh: 2026-2027">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="inputUraian">Uraian Kegiatan Latihan <span class="required">*</span></label>
+                        <textarea id="inputUraian" rows="4" required placeholder="Tuliskan uraian detail kegiatan latihan Pramuka Sordu hari ini..."></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label><i class="fa-solid fa-camera"></i> Upload 2 Foto Dokumentasi Kegiatan <span class="required">*</span></label>
+                        <div class="photo-upload-grid">
+                            <!-- Photo Slot 1 -->
+                            <div class="photo-uploader" id="uploader1">
+                                <input type="file" id="foto1" accept="image/*" class="file-input">
+                                <div class="upload-placeholder" id="placeholder1">
+                                    <i class="fa-solid fa-cloud-arrow-up"></i>
+                                    <span>Upload Foto 1</span>
+                                    <small>Format JPG/PNG</small>
+                                </div>
+                                <div class="upload-preview hidden" id="previewContainer1">
+                                    <img id="imgPreview1" src="" alt="Foto 1">
+                                    <button type="button" class="btn-remove-photo" id="btnRemoveFoto1">&times;</button>
+                                </div>
+                            </div>
+
+                            <!-- Photo Slot 2 -->
+                            <div class="photo-uploader" id="uploader2">
+                                <input type="file" id="foto2" accept="image/*" class="file-input">
+                                <div class="upload-placeholder" id="placeholder2">
+                                    <i class="fa-solid fa-cloud-arrow-up"></i>
+                                    <span>Upload Foto 2</span>
+                                    <small>Format JPG/PNG</small>
+                                </div>
+                                <div class="upload-preview hidden" id="previewContainer2">
+                                    <img id="imgPreview2" src="" alt="Foto 2">
+                                    <button type="button" class="btn-remove-photo" id="btnRemoveFoto2">&times;</button>
+                                </div>
+                            </div>
+                        </div>
+                        <small class="field-hint">Catatan: Setiap pertemuan latihan wajib melampirkan 2 foto dokumentasi kegiatan.</small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline" id="btnBatal">Batal</button>
+                    <button type="submit" class="btn btn-primary" id="btnSimpan">
+                        <i class="fa-solid fa-floppy-disk"></i> Simpan Data Latihan
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Full Image Viewer -->
+    <div class="modal-backdrop" id="modalImageViewer">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-image"></i> Pratinjau Foto Dokumentasi</h3>
+                <button class="btn-close" id="btnCloseImageViewer">&times;</button>
+            </div>
+            <div class="modal-body text-center">
+                <img id="fullImageViewerSrc" src="" alt="Foto Dokumentasi Full" style="max-width: 100%; max-height: 70vh; border-radius: 8px; border: 2px solid var(--border-color);">
+            </div>
+        </div>
+    </div>
+
+    <!-- HIDDEN PRINT / PDF REPORT CONTAINER (STRICT MATCH TO THE PRINT TEMPLATE IMAGE) -->
+    <div id="printArea" class="print-area">
+        <div class="print-header">
+            <h1 class="print-title">LAPORAN KEGIATAN EKSTRAKURIKULER</h1>
+            <h1 class="print-title" id="printJudulBulan">PRAMUKA BULAN AGUSTUS</h1>
+            <h1 class="print-title" id="printJudulTahun">TAHUN PELAJARAN 2026-2027</h1>
+        </div>
+
+        <table class="print-table">
+            <thead>
+                <tr>
+                    <th class="col-no">No</th>
+                    <th class="col-tanggal">Hari, Tanggal</th>
+                    <th class="col-uraian">Uraian Kegiatan</th>
+                    <th class="col-dokumentasi">Dokumentasi</th>
+                </tr>
+            </thead>
+            <tbody id="printTableBody">
+                <!-- Rows injected dynamically for PDF generation -->
+            </tbody>
+        </table>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
