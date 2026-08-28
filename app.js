@@ -235,71 +235,9 @@ function compressImage(file, maxWidth = 800, quality = 0.82) {
     });
 }
 
-// Helper: Generate Placeholder Canvas Image
-function generateSamplePhoto(text, color1, color2) {
-    const canvas = document.createElement('canvas');
-    canvas.width = 600;
-    canvas.height = 450;
-    const ctx = canvas.getContext('2d');
-    
-    // Background Gradient
-    const grad = ctx.createLinearGradient(0, 0, 600, 450);
-    grad.addColorStop(0, color1);
-    grad.addColorStop(1, color2);
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, 600, 450);
-
-    // Decorative Elements
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
-    ctx.beginPath();
-    ctx.arc(300, 225, 160, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Text Label
-    ctx.fillStyle = '#FFFFFF';
-    ctx.font = 'bold 26px Outfit, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('DOKUMENTASI PRAMUKA SORDU', 300, 190);
-
-    ctx.font = '20px Plus Jakarta Sans, sans-serif';
-    ctx.fillText(text, 300, 240);
-
-    return canvas.toDataURL('image/jpeg', 0.85);
-}
-
-// Initialize Seed Data if DB is Empty
+// Disable Sample Data Generator (Clean Database Mode)
 async function initSeedData() {
-    const data = await DatabaseService.getAll();
-    if (data.length === 0) {
-        const samplePhoto1 = generateSamplePhoto('Latihan Apel & Baris-Berbaris', '#5D4037', '#795548');
-        const samplePhoto2 = generateSamplePhoto('Upacara Penggalang & Pembukaan', '#FF8F00', '#FF6F00');
-        const samplePhoto3 = generateSamplePhoto('Pramuka Sordu di Ruang Kelas', '#2E7D32', '#1B5E20');
-        const samplePhoto4 = generateSamplePhoto('Materi Tali Menali & Semaphore', '#475569', '#334155');
-
-        const seedItems = [
-            {
-                id: 'seed-1',
-                tanggal: '2026-08-01',
-                tahunPelajaran: '2026-2027',
-                uraian: 'Latihan rutin Pembukaan Bulan Agustus: Pelatihan Baris Berbaris (PBB), Pengenalan Dasa Darma Pramuka, serta Gladi Apel Pasukan Gudep Sordu.',
-                foto1: samplePhoto1,
-                foto2: samplePhoto2
-            },
-            {
-                id: 'seed-2',
-                tanggal: '2026-08-05',
-                tahunPelajaran: '2026-2027',
-                uraian: 'Materi Kelas: Pengetahuan Umum Pramuka (PUPK), Latihan Sandi Morse, serta Evaluasi Kelengkapan Seragam & Atribut Pramuka Penggalang.',
-                foto1: samplePhoto3,
-                foto2: samplePhoto4
-            }
-        ];
-
-        for (const item of seedItems) {
-            await DatabaseService.save(item);
-        }
-    }
+    // Clean mode: no dummy/sample data generated
 }
 
 // Render Dashboard Data & Tables
@@ -308,7 +246,7 @@ async function loadData() {
     try {
         latihanList = await DatabaseService.getAll();
         if (syncStatus) {
-            syncStatus.innerHTML = '<i class="fa-solid fa-circle" style="color: #2E7D32;"></i> MongoDB Live Connected';
+            syncStatus.innerHTML = '<i class="fa-solid fa-circle" style="color: #2E7D32;"></i> MongoDB Atlas Live Sync (HP & Laptop)';
         }
     } catch (e) {
         if (syncStatus) {
@@ -558,30 +496,84 @@ function closeImageViewer() {
     modalImageViewer.classList.remove('active');
 }
 
-// Edit Item
+// Authentication State & UI Helper Functions
+const btnLoginNav = document.getElementById('btnLoginNav');
+const userProfileArea = document.getElementById('userProfileArea');
+const btnLogoutNav = document.getElementById('btnLogoutNav');
+const modalLogin = document.getElementById('modalLogin');
+const formLogin = document.getElementById('formLogin');
+const loginUsername = document.getElementById('loginUsername');
+const loginPassword = document.getElementById('loginPassword');
+const btnCloseModalLogin = document.getElementById('btnCloseModalLogin');
+const btnBatalLogin = document.getElementById('btnBatalLogin');
+const loginAlert = document.getElementById('loginAlert');
+const loginAlertText = document.getElementById('loginAlertText');
+const btnTogglePassword = document.getElementById('btnTogglePassword');
+const iconTogglePassword = document.getElementById('iconTogglePassword');
+
+function updateAuthUI() {
+    const isLoggedIn = localStorage.getItem('pramuka_sordu_auth') === 'true';
+    if (isLoggedIn) {
+        if (btnLoginNav) btnLoginNav.classList.add('hidden');
+        if (userProfileArea) userProfileArea.classList.remove('hidden');
+    } else {
+        if (btnLoginNav) btnLoginNav.classList.remove('hidden');
+        if (userProfileArea) userProfileArea.classList.add('hidden');
+    }
+}
+
+function checkAuthOrPrompt(callback) {
+    const isLoggedIn = localStorage.getItem('pramuka_sordu_auth') === 'true';
+    if (isLoggedIn) {
+        if (typeof callback === 'function') callback();
+    } else {
+        openLoginModal();
+    }
+}
+
+function openLoginModal() {
+    if (modalLogin) {
+        modalLogin.classList.add('active');
+        if (loginAlert) loginAlert.classList.add('hidden');
+        if (formLogin) formLogin.reset();
+        if (loginUsername) loginUsername.focus();
+    }
+}
+
+function closeLoginModal() {
+    if (modalLogin) {
+        modalLogin.classList.remove('active');
+    }
+}
+
+// Edit Item (Protected by Auth)
 window.editData = function(id) {
-    const item = latihanList.find(i => i.id === id);
-    if (!item) return;
+    checkAuthOrPrompt(() => {
+        const item = latihanList.find(i => i.id === id);
+        if (!item) return;
 
-    modalTitle.innerHTML = '<i class="fa-solid fa-pen-to-square"></i> Edit Data Latihan';
-    editId.value = item.id;
-    inputTanggal.value = item.tanggal;
-    updateFormattedDateHint();
-    inputTahunPelajaran.value = item.tahunPelajaran || '2026-2027';
-    inputUraian.value = item.uraian;
+        modalTitle.innerHTML = '<i class="fa-solid fa-pen-to-square"></i> Edit Data Latihan';
+        editId.value = item.id;
+        inputTanggal.value = item.tanggal;
+        updateFormattedDateHint();
+        inputTahunPelajaran.value = item.tahunPelajaran || '2026-2027';
+        inputUraian.value = item.uraian;
 
-    if (item.foto1) setPhotoPreview(1, item.foto1);
-    if (item.foto2) setPhotoPreview(2, item.foto2);
+        if (item.foto1) setPhotoPreview(1, item.foto1);
+        if (item.foto2) setPhotoPreview(2, item.foto2);
 
-    modalForm.classList.add('active');
+        modalForm.classList.add('active');
+    });
 };
 
-// Delete Item
+// Delete Item (Protected by Auth)
 window.hapusData = async function(id) {
-    if (confirm('Apakah Anda yakin ingin menghapus data latihan ini?')) {
-        await DatabaseService.delete(id);
-        await loadData();
-    }
+    checkAuthOrPrompt(async () => {
+        if (confirm('Apakah Anda yakin ingin menghapus data latihan ini?')) {
+            await DatabaseService.delete(id);
+            await loadData();
+        }
+    });
 };
 
 // HTML Escaper
@@ -620,23 +612,22 @@ function downloadPDF() {
 
 // Event Listeners Initialization
 document.addEventListener('DOMContentLoaded', async () => {
+    updateAuthUI();
     await initSeedData();
     await loadData();
 
-    // Auto-polling for multi-device live sync (fetches every 5 seconds)
+    // Auto-polling for multi-device live sync (fetches every 3 seconds)
     setInterval(async () => {
         await loadData();
-    }, 5000);
+    }, 3000);
 
-    // Auto-sync when phone screen unlocks or browser tab becomes active
-    document.addEventListener('visibilitychange', () => {
-        if (!document.hidden) {
-            loadData();
-        }
-    });
-
-    window.addEventListener('focus', () => {
-        loadData();
+    // Auto-sync when phone screen unlocks, tab active, network online, or page shown
+    ['visibilitychange', 'focus', 'online', 'pageshow'].forEach(eventType => {
+        window.addEventListener(eventType, () => {
+            if (!document.hidden) {
+                loadData();
+            }
+        });
     });
 
     // Filters
@@ -647,8 +638,56 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Date change event
     inputTanggal.addEventListener('change', updateFormattedDateHint);
 
-    // Modal Control
-    document.getElementById('btnTambahLatihan').addEventListener('click', () => openModal(false));
+    // Navigation Auth Controls
+    if (btnLoginNav) {
+        btnLoginNav.addEventListener('click', openLoginModal);
+    }
+
+    if (btnLogoutNav) {
+        btnLogoutNav.addEventListener('click', () => {
+            if (confirm('Apakah Anda yakin ingin keluar dari akun Pembina?')) {
+                localStorage.removeItem('pramuka_sordu_auth');
+                updateAuthUI();
+            }
+        });
+    }
+
+    if (btnCloseModalLogin) btnCloseModalLogin.addEventListener('click', closeLoginModal);
+    if (btnBatalLogin) btnBatalLogin.addEventListener('click', closeLoginModal);
+
+    // Toggle Password Visibility
+    if (btnTogglePassword) {
+        btnTogglePassword.addEventListener('click', () => {
+            const isPassword = loginPassword.type === 'password';
+            loginPassword.type = isPassword ? 'text' : 'password';
+            iconTogglePassword.className = isPassword ? 'fa-solid fa-eye-slash' : 'fa-solid fa-eye';
+        });
+    }
+
+    // Login Form Submit Handler
+    if (formLogin) {
+        formLogin.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const user = loginUsername.value.trim();
+            const pass = loginPassword.value.trim();
+
+            // Default credentials check (username: admin, password: pramukasordu)
+            if ((user === 'admin' || user.toLowerCase() === 'pembina') && (pass === 'pramukasordu' || pass === 'admin123')) {
+                localStorage.setItem('pramuka_sordu_auth', 'true');
+                updateAuthUI();
+                closeLoginModal();
+            } else {
+                loginAlertText.textContent = 'Username atau Password salah!';
+                loginAlert.classList.remove('hidden');
+            }
+        });
+    }
+
+    // Modal Control (Protected Input Features)
+    document.getElementById('btnTambahLatihan').addEventListener('click', () => {
+        checkAuthOrPrompt(() => openModal(false));
+    });
+    
     document.getElementById('btnCloseModal').addEventListener('click', closeModal);
     document.getElementById('btnBatal').addEventListener('click', closeModal);
     btnCloseImageViewer.addEventListener('click', closeImageViewer);
@@ -735,7 +774,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     document.getElementById('btnRestore').addEventListener('click', () => {
-        document.getElementById('fileRestoreInput').click();
+        checkAuthOrPrompt(() => document.getElementById('fileRestoreInput').click());
     });
 
     document.getElementById('fileRestoreInput').addEventListener('change', async (e) => {
@@ -745,10 +784,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 try {
                     const importedData = JSON.parse(evt.target.result);
                     if (Array.isArray(importedData)) {
-                        await DatabaseService.clearAll();
-                        for (const item of importedData) {
-                            await DatabaseService.save(item);
-                        }
+                        await DatabaseService.clearAllLocal();
+                        await DatabaseService.bulkSave(importedData);
                         await loadData();
                         alert('Data rekap latihan berhasil di-restore!');
                     }
