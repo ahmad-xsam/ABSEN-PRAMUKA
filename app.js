@@ -304,7 +304,17 @@ async function initSeedData() {
 
 // Render Dashboard Data & Tables
 async function loadData() {
-    latihanList = await DatabaseService.getAll();
+    const syncStatus = document.getElementById('syncStatus');
+    try {
+        latihanList = await DatabaseService.getAll();
+        if (syncStatus) {
+            syncStatus.innerHTML = '<i class="fa-solid fa-circle" style="color: #2E7D32;"></i> MongoDB Live Connected';
+        }
+    } catch (e) {
+        if (syncStatus) {
+            syncStatus.innerHTML = '<i class="fa-solid fa-circle" style="color: #FF8F00;"></i> Offline Mode (IndexedDB)';
+        }
+    }
     renderApp();
 }
 
@@ -612,6 +622,22 @@ function downloadPDF() {
 document.addEventListener('DOMContentLoaded', async () => {
     await initSeedData();
     await loadData();
+
+    // Auto-polling for multi-device live sync (fetches every 5 seconds)
+    setInterval(async () => {
+        await loadData();
+    }, 5000);
+
+    // Auto-sync when phone screen unlocks or browser tab becomes active
+    document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) {
+            loadData();
+        }
+    });
+
+    window.addEventListener('focus', () => {
+        loadData();
+    });
 
     // Filters
     filterBulan.addEventListener('change', renderApp);

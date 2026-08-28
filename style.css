@@ -767,6 +767,123 @@ body {
 }
 
 
+/* Real-time Sync Status Badge */
+.sync-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #2E7D32;
+    background-color: #E8F5E9;
+    padding: 3px 10px;
+    border-radius: 12px;
+    margin-top: 4px;
+    border: 1px solid #A5D6A7;
+}
+
+
+/* Mobile & Android Responsive Media Queries */
+@media screen and (max-width: 768px) {
+    .app-container {
+        padding: 12px 10px;
+    }
+
+    .app-header {
+        flex-direction: column;
+        align-items: stretch;
+        padding: 16px;
+        gap: 14px;
+    }
+
+    .header-brand {
+        justify-content: flex-start;
+    }
+
+    .header-actions {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        width: 100%;
+    }
+
+    .header-actions #btnTambahLatihan {
+        grid-column: span 2;
+        width: 100%;
+        justify-content: center;
+        padding: 12px 16px;
+        font-size: 15px;
+    }
+
+    .stats-row {
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
+
+    .filter-card {
+        padding: 16px;
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .filter-group {
+        flex-direction: column;
+        width: 100%;
+    }
+
+    .input-field {
+        width: 100%;
+        min-width: 100%;
+    }
+
+    .export-actions {
+        width: 100%;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        margin-top: 6px;
+    }
+
+    .export-actions .btn {
+        justify-content: center;
+        width: 100%;
+        padding: 11px 8px;
+        font-size: 13px;
+    }
+
+    .table-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+
+    .modal-dialog {
+        max-width: 95%;
+        margin: 10px auto;
+    }
+
+    .form-row {
+        grid-template-columns: 1fr;
+    }
+
+    .photo-upload-grid {
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+    }
+
+    .modal-footer {
+        flex-direction: column-reverse;
+        gap: 8px;
+    }
+
+    .modal-footer .btn {
+        width: 100%;
+        justify-content: center;
+        padding: 12px;
+    }
+}
+
+
 /* Native Browser Print Media Query */
 @media print {
     body * {
