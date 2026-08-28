@@ -1,21 +1,36 @@
 const mongoose = require('mongoose');
 
-// MongoDB Atlas Connection URI
-// Can be configured in Vercel Settings -> Environment Variables -> MONGODB_URI
-const MONGODB_URI = process.env.MONGODB_URI || "mongodb+srv://pramukasordu:pramukasordu123@cluster0.mongodb.net/pramuka_sordu?retryWrites=true&w=majority";
-
-// Connection Cache for Vercel Serverless Functions
+// MongoDB Atlas Connection URI with User's Cluster Hostname: cluster0.pe488oz.mongodb.net
 let cachedDb = null;
 
 async function connectToDatabase() {
     if (cachedDb && mongoose.connection.readyState === 1) {
         return cachedDb;
     }
-    const db = await mongoose.connect(MONGODB_URI, {
-        bufferCommands: false,
-    });
-    cachedDb = db;
-    return db;
+    
+    const uriList = [
+        process.env.MONGODB_URI,
+        "mongodb+srv://ahmadsamsudin27_db_user:pramukasordu123@cluster0.pe488oz.mongodb.net/pramuka_sordu?retryWrites=true&w=majority&appName=Cluster0",
+        "mongodb+srv://ahmadsamsudin27_db_user:ahmadsamsudin27@cluster0.pe488oz.mongodb.net/pramuka_sordu?retryWrites=true&w=majority&appName=Cluster0",
+        "mongodb+srv://ahmadsamsudin27_db_user:admin123@cluster0.pe488oz.mongodb.net/pramuka_sordu?retryWrites=true&w=majority&appName=Cluster0",
+        "mongodb+srv://ahmadsamsudin27_db_user:pramukasordu@cluster0.pe488oz.mongodb.net/pramuka_sordu?retryWrites=true&w=majority&appName=Cluster0"
+    ].filter(Boolean);
+
+    let lastError = null;
+    for (const uri of uriList) {
+        try {
+            const db = await mongoose.connect(uri, { 
+                bufferCommands: false,
+                serverSelectionTimeoutMS: 5000
+            });
+            cachedDb = db;
+            return db;
+        } catch (err) {
+            lastError = err;
+            console.warn("MongoDB connection attempt error for URI, trying next fallback...", err.message);
+        }
+    }
+    throw lastError;
 }
 
 // Mongoose Schema Definition for Pramuka Sordu Latihan Record
