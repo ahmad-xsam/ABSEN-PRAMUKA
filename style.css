@@ -668,9 +668,25 @@ body {
     width: 100%;
 }
 
+/* Print Page Container - Full Height A4 Landscape (184mm) */
+.print-page {
+    box-sizing: border-box;
+    page-break-after: always;
+    break-after: page;
+    height: 184mm;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+}
+
+.print-page:last-child {
+    page-break-after: auto;
+    break-after: auto;
+}
+
 .print-header {
     text-align: center;
-    margin-bottom: 28px;
+    margin-bottom: 14px;
 }
 
 .print-title {
@@ -689,11 +705,12 @@ body {
     border-collapse: collapse;
     border: 1px solid #000000;
     font-size: 11pt;
+    flex: 1;
 }
 
 .print-table th, .print-table td {
     border: 1px solid #000000;
-    padding: 10px 8px;
+    padding: 8px;
     vertical-align: middle;
     color: #000000;
 }
@@ -723,25 +740,6 @@ body {
     text-align: center;
 }
 
-.print-page {
-    box-sizing: border-box;
-    page-break-after: always;
-    break-after: page;
-}
-
-.print-page:last-child {
-    page-break-after: auto;
-    break-after: auto;
-}
-
-.print-page.page-first {
-    padding-top: 4mm;
-}
-
-.print-page.page-subsequent {
-    padding-top: 22mm;
-}
-
 .print-doc-grid {
     display: flex;
     gap: 6px;
@@ -750,9 +748,17 @@ body {
     width: 100%;
 }
 
-.print-doc-grid img {
+.table-page-first .print-doc-grid img {
     width: 49%;
-    height: 150px;
+    height: 165px;
+    object-fit: cover;
+    border: 1px solid #000000;
+    display: block;
+}
+
+.table-page-subsequent .print-doc-grid img {
+    width: 49%;
+    height: 205px;
     object-fit: cover;
     border: 1px solid #000000;
     display: block;
@@ -774,11 +780,12 @@ body {
         top: 0;
         width: 100%;
         margin: 0;
-        padding: 8mm 10mm 5mm 10mm;
+        padding: 10mm 10mm 8mm 10mm;
     }
     .print-page {
         page-break-after: always;
         break-after: page;
+        height: 184mm;
     }
     .print-page:last-child {
         page-break-after: auto;
@@ -786,6 +793,6 @@ body {
     }
     @page {
         size: A4 landscape;
-        margin: 8mm 10mm 5mm 10mm;
+        margin: 10mm 10mm 8mm 10mm;
     }
 }
