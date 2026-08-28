@@ -795,43 +795,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('btnCetak').addEventListener('click', () => {
         window.print();
     });
-
-    // Backup & Restore
-    document.getElementById('btnBackup').addEventListener('click', async () => {
-        const allData = await DatabaseService.getAll();
-        const jsonStr = JSON.stringify(allData, null, 2);
-        const blob = new Blob([jsonStr], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `Backup_Pramuka_Sordu_${new Date().toISOString().slice(0,10)}.json`;
-        a.click();
-        URL.revokeObjectURL(url);
-    });
-
-    document.getElementById('btnRestore').addEventListener('click', () => {
-        checkAuthOrPrompt(() => document.getElementById('fileRestoreInput').click());
-    });
-
-    document.getElementById('fileRestoreInput').addEventListener('change', async (e) => {
-        if (e.target.files && e.target.files[0]) {
-            const reader = new FileReader();
-            reader.onload = async (evt) => {
-                try {
-                    const importedData = JSON.parse(evt.target.result);
-                    if (Array.isArray(importedData)) {
-                        await DatabaseService.clearAllLocal();
-                        await DatabaseService.bulkSave(importedData);
-                        await loadData();
-                        alert('Data rekap latihan berhasil di-restore!');
-                    }
-                } catch (err) {
-                    alert('Format file backup JSON tidak valid.');
-                }
-            };
-            reader.readAsText(e.target.files[0]);
-        }
-    });
     // Fullscreen Landing Login Form Submission
     const formLoginLanding = document.getElementById('formLoginLanding');
     const loginUsernameLanding = document.getElementById('loginUsernameLanding');
