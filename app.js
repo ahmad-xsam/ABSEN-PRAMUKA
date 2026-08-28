@@ -17,56 +17,80 @@ const STORE_NAME = 'latihan';
 const DEFAULT_SCOUT_PHOTO = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300" viewBox="0 0 400 300"><rect width="400" height="300" fill="%235D4037"/><circle cx="200" cy="120" r="45" fill="%23FF8F00"/><text x="50%" y="220" dominant-baseline="middle" text-anchor="middle" fill="%23FFFFFF" font-family="sans-serif" font-size="20" font-weight="bold">PRAMUKA SORDU</text><text x="50%" y="250" dominant-baseline="middle" text-anchor="middle" fill="%23E0E0E0" font-family="sans-serif" font-size="14">Dokumentasi Latihan</text></svg>';
 
 class DatabaseService {
-    // Sync directly with MongoDB Atlas Serverless API
-    static async getAll() {
+    static async getAllCloud() {
         try {
             const res = await fetch(`/api/latihan?_t=${Date.now()}`);
             if (res.ok) {
                 const json = await res.json();
                 if (json.success && Array.isArray(json.data)) {
-                    return json.data.map(item => ({
+                    const items = json.data.map(item => ({
                         ...item,
                         id: item._id || item.id
                     }));
+                    return { isOnline: true, data: items };
                 }
             }
         } catch (err) {
-            console.error("Error fetching MongoDB REST API:", err);
+            console.warn("MongoDB Cloud API offline or not configured yet:", err);
         }
-        return [];
+        return { isOnline: false, data: null };
+    }
+
+    static async getAll() {
+        const cloudResult = await this.getAllCloud();
+        if (cloudResult.isOnline && cloudResult.data) {
+            // Keep local synced
+            for (const item of cloudResult.data) {
+                await this.saveLocal(item);
+            }
+            return cloudResult.data;
+        }
+        return await this.getAllLocal();
     }
 
     static async save(item) {
-        const isValidMongoId = item.id && /^[0-9a-fA-F]{24}$/.test(String(item.id));
-        const isEdit = Boolean(isValidMongoId);
-        const url = isEdit ? `/api/latihan?id=${item.id}` : '/api/latihan';
-        const method = isEdit ? 'PUT' : 'POST';
+        let isCloudSaved = false;
+        let savedItem = { ...item };
 
-        const payload = { ...item };
-        if (!isValidMongoId) {
-            delete payload.id;
-            delete payload._id;
+        try {
+            const isValidMongoId = item.id && /^[0-9a-fA-F]{24}$/.test(String(item.id));
+            const isEdit = Boolean(isValidMongoId);
+            const url = isEdit ? `/api/latihan?id=${item.id}` : '/api/latihan';
+            const method = isEdit ? 'PUT' : 'POST';
+
+            const payload = { ...item };
+            if (!isValidMongoId) {
+                delete payload.id;
+                delete payload._id;
+            }
+
+            if (!payload.foto1) payload.foto1 = DEFAULT_SCOUT_PHOTO;
+            if (!payload.foto2) payload.foto2 = DEFAULT_SCOUT_PHOTO;
+
+            const res = await fetch(url, {
+                method: method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (res.ok) {
+                const json = await res.json();
+                if (json.success && json.data) {
+                    savedItem = { ...json.data, id: json.data._id || json.data.id };
+                    isCloudSaved = true;
+                }
+            }
+        } catch (err) {
+            console.warn("Could not save to MongoDB Cloud API, falling back to device memory:", err);
         }
 
-        if (!payload.foto1) payload.foto1 = DEFAULT_SCOUT_PHOTO;
-        if (!payload.foto2) payload.foto2 = DEFAULT_SCOUT_PHOTO;
-
-        const res = await fetch(url, {
-            method: method,
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
-
-        if (!res.ok) {
-            const errText = await res.text();
-            throw new Error(`MongoDB API Error HTTP ${res.status}: ${errText}`);
+        // Always ensure local storage is updated so user data is never lost
+        if (!savedItem.id) {
+            savedItem.id = 'loc_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6);
         }
+        await this.saveLocal(savedItem);
 
-        const json = await res.json();
-        if (json.success && json.data) {
-            return { ...json.data, id: json.data._id || json.data.id };
-        }
-        throw new Error(json.message || "Gagal menyimpan ke MongoDB Atlas");
+        return { isCloud: isCloudSaved, data: savedItem };
     }
 
     static async delete(id) {
@@ -251,17 +275,32 @@ async function initSeedData() {
 // Render Dashboard Data & Tables
 async function loadData() {
     const syncStatus = document.getElementById('syncStatus');
+    let isCloudActive = false;
+
     try {
-        latihanList = await DatabaseService.getAll();
+        const cloudRes = await DatabaseService.getAllCloud();
+        if (cloudRes.isOnline && cloudRes.data) {
+            latihanList = cloudRes.data;
+            isCloudActive = true;
+        } else {
+            latihanList = await DatabaseService.getAllLocal();
+        }
     } catch (e) {
-        console.error("Load data error:", e);
+        latihanList = await DatabaseService.getAllLocal();
     }
 
     if (syncStatus) {
-        syncStatus.innerHTML = '<i class="fa-solid fa-circle" style="color: #2E7D32;"></i> Terhubung MongoDB Atlas Cloud (Live Synchronized)';
-        syncStatus.style.backgroundColor = '#E8F5E9';
-        syncStatus.style.color = '#2E7D32';
-        syncStatus.style.borderColor = '#A5D6A7';
+        if (isCloudActive) {
+            syncStatus.innerHTML = '<i class="fa-solid fa-circle" style="color: #2E7D32;"></i> MongoDB Atlas Cloud Active (Live Synchronized)';
+            syncStatus.style.backgroundColor = '#E8F5E9';
+            syncStatus.style.color = '#2E7D32';
+            syncStatus.style.borderColor = '#A5D6A7';
+        } else {
+            syncStatus.innerHTML = '<i class="fa-solid fa-circle-exclamation" style="color: #E65100;"></i> MongoDB Atlas Standby (Set MONGODB_URI di Vercel)';
+            syncStatus.style.backgroundColor = '#FFF3E0';
+            syncStatus.style.color = '#E65100';
+            syncStatus.style.borderColor = '#FFE0B2';
+        }
     }
 
     renderApp();
@@ -778,7 +817,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         try {
             if (btnSimpan) {
                 btnSimpan.disabled = true;
-                btnSimpan.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Menyimpan ke MongoDB...';
+                btnSimpan.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Menyimpan...';
             }
 
             const itemData = {
@@ -793,14 +832,18 @@ document.addEventListener('DOMContentLoaded', async () => {
                 itemData.id = editId.value;
             }
 
-            await DatabaseService.save(itemData);
+            const saveResult = await DatabaseService.save(itemData);
             closeModal();
 
-            alert('✓ Data Latihan Berhasil Disimpan ke MongoDB Cloud!');
+            if (saveResult && saveResult.isCloud) {
+                alert('✓ Data Latihan Berhasil Disimpan ke MongoDB Cloud!');
+            } else {
+                alert('✓ Data Latihan Berhasil Disimpan di Perangkat!\n\nCatatan: Untuk sinkronisasi cloud multi-perangkat (HP & Laptop), pastikan MONGODB_URI di Vercel Settings -> Environment Variables sudah diisi dengan Connection String MongoDB Atlas milik Anda.');
+            }
             await loadData();
         } catch (err) {
-            console.error("Gagal menyimpan data ke MongoDB:", err);
-            alert('Gagal menyimpan data ke MongoDB: ' + (err.message || err));
+            console.error("Gagal menyimpan data:", err);
+            alert('Gagal menyimpan data: ' + (err.message || err));
         } finally {
             if (btnSimpan) {
                 btnSimpan.disabled = false;
