@@ -705,27 +705,27 @@ body {
 }
 
 .print-table .col-no {
-    width: 5%;
+    width: 4%;
     text-align: center;
 }
 
 .print-table .col-tanggal {
-    width: 22%;
+    width: 14%;
 }
 
 .print-table .col-uraian {
-    width: 33%;
+    width: 30%;
     white-space: pre-line;
 }
 
 .print-table .col-dokumentasi {
-    width: 40%;
+    width: 52%;
     text-align: center;
 }
 
 .print-doc-grid {
     display: flex;
-    gap: 4px;
+    gap: 6px;
     justify-content: center;
     align-items: center;
     width: 100%;
@@ -733,7 +733,7 @@ body {
 
 .print-doc-grid img {
     width: 49%;
-    height: 165px;
+    height: 195px;
     object-fit: cover;
     border: 1px solid #000000;
     display: block;
