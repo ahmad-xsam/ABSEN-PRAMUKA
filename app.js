@@ -34,25 +34,116 @@ function showToast(message, type = 'success') {
 
 const DEFAULT_SCOUT_PHOTO = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300" viewBox="0 0 400 300"><rect width="400" height="300" fill="%235D4037"/><circle cx="200" cy="120" r="45" fill="%23FF8F00"/><text x="50%" y="220" dominant-baseline="middle" text-anchor="middle" fill="%23FFFFFF" font-family="sans-serif" font-size="20" font-weight="bold">PRAMUKA SORDU</text><text x="50%" y="250" dominant-baseline="middle" text-anchor="middle" fill="%23E0E0E0" font-family="sans-serif" font-size="14">Dokumentasi Latihan</text></svg>';
 
-class DatabaseService {
-    static async getAll() {
-        const res = await fetch(`/api/latihan?_t=${Date.now()}`, {
-            headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate', 'Pragma': 'no-cache' }
+// IndexedDB Fail-Safe Helper (Offline Backup & Sync)
+const DB_NAME = 'PramukaSorduDB';
+const DB_VERSION = 1;
+const STORE_NAME = 'latihan';
+
+function openLocalDB() {
+    return new Promise((resolve, reject) => {
+        const req = indexedDB.open(DB_NAME, DB_VERSION);
+        req.onupgradeneeded = (e) => {
+            const db = e.target.result;
+            if (!db.objectStoreNames.contains(STORE_NAME)) {
+                db.createObjectStore(STORE_NAME, { keyPath: 'id' });
+            }
+        };
+        req.onsuccess = (e) => resolve(e.target.result);
+        req.onerror = (e) => reject(e.target.error);
+    });
+}
+
+async function saveLocalItem(item) {
+    try {
+        const db = await openLocalDB();
+        const tx = db.transaction(STORE_NAME, 'readwrite');
+        const store = tx.objectStore(STORE_NAME);
+        store.put(item);
+        return new Promise((resolve) => {
+            tx.oncomplete = () => resolve();
         });
-        if (!res.ok) {
-            throw new Error(`HTTP ${res.status}: Gagal terhubung ke MongoDB Cloud API`);
-        }
-        const json = await res.json();
-        if (json.success && Array.isArray(json.data)) {
-            return json.data.map(item => ({
-                ...item,
-                id: item._id || item.id
-            }));
-        }
+    } catch (e) {
+        console.warn("IndexedDB save error:", e);
+    }
+}
+
+async function getAllLocalItems() {
+    try {
+        const db = await openLocalDB();
+        const tx = db.transaction(STORE_NAME, 'readonly');
+        const store = tx.objectStore(STORE_NAME);
+        const req = store.getAll();
+        return new Promise((resolve) => {
+            req.onsuccess = () => resolve(req.result || []);
+            req.onerror = () => resolve([]);
+        });
+    } catch (e) {
         return [];
     }
+}
 
-    static async save(item) {
+async function deleteLocalItem(id) {
+    try {
+        const db = await openLocalDB();
+        const tx = db.transaction(STORE_NAME, 'readwrite');
+        const store = tx.objectStore(STORE_NAME);
+        store.delete(id);
+        return new Promise((resolve) => {
+            tx.oncomplete = () => resolve();
+        });
+    } catch (e) {}
+}
+
+class DatabaseService {
+    static async getAllCloud() {
+        try {
+            const res = await fetch(`/api/latihan?_t=${Date.now()}`, {
+                headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate', 'Pragma': 'no-cache' }
+            });
+            if (res.ok) {
+                const json = await res.json();
+                if (json.success && Array.isArray(json.data)) {
+                    const items = json.data.map(item => ({
+                        ...item,
+                        id: item._id || item.id
+                    }));
+                    return { isOnline: true, data: items };
+                }
+            }
+        } catch (err) {
+            console.warn("MongoDB Cloud API fetch error:", err);
+        }
+        return { isOnline: false, data: null };
+    }
+
+    static async getAll() {
+        const cloud = await this.getAllCloud();
+        if (cloud.isOnline && cloud.data) {
+            // Update local backup cache
+            for (const item of cloud.data) {
+                await saveLocalItem(item);
+            }
+            // Auto-migrate any offline items created locally
+            const localItems = await getAllLocalItems();
+            const unsynced = localItems.filter(i => String(i.id || '').startsWith('loc_'));
+            if (unsynced.length > 0) {
+                for (const item of unsynced) {
+                    const res = await this.saveCloudOnly(item);
+                    if (res.isCloud) {
+                        await deleteLocalItem(item.id);
+                    }
+                }
+                const refreshed = await this.getAllCloud();
+                if (refreshed.isOnline && refreshed.data) return refreshed.data;
+            }
+            return cloud.data;
+        }
+
+        // Offline fallback
+        return await getAllLocalItems();
+    }
+
+    static async saveCloudOnly(item) {
         const isValidMongoId = item.id && /^[0-9a-fA-F]{24}$/.test(String(item.id));
         const isEdit = Boolean(isValidMongoId);
         const url = isEdit ? `/api/latihan?id=${item.id}` : '/api/latihan';
@@ -75,24 +166,50 @@ class DatabaseService {
 
         if (!res.ok) {
             const errText = await res.text();
-            throw new Error(`Gagal menyimpan ke MongoDB Cloud: HTTP ${res.status} ${errText}`);
+            throw new Error(`HTTP ${res.status}: ${errText}`);
         }
 
         const json = await res.json();
         if (json.success && json.data) {
             return {
-                ...json.data,
-                id: json.data._id || json.data.id
+                isCloud: true,
+                data: { ...json.data, id: json.data._id || json.data.id }
             };
         }
-        throw new Error('Respon dari MongoDB API tidak valid.');
+        throw new Error('Format respons MongoDB Cloud API tidak valid.');
+    }
+
+    static async save(item) {
+        let savedItem = { ...item };
+        let cloudError = null;
+
+        try {
+            const cloudRes = await this.saveCloudOnly(item);
+            if (cloudRes.isCloud) {
+                savedItem = cloudRes.data;
+                await saveLocalItem(savedItem);
+                return { isCloud: true, data: savedItem };
+            }
+        } catch (err) {
+            cloudError = err.message || 'Koneksi MongoDB Cloud terputus';
+            console.warn("Could not save to MongoDB Cloud, saving to local device memory:", err);
+        }
+
+        // Fail-safe: Save to local device memory if cloud fails
+        if (!savedItem.id) {
+            savedItem.id = 'loc_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6);
+        }
+        await saveLocalItem(savedItem);
+        return { isCloud: false, error: cloudError, data: savedItem };
     }
 
     static async delete(id) {
-        const res = await fetch(`/api/latihan?id=${id}`, { method: 'DELETE' });
-        if (!res.ok) {
-            throw new Error('Gagal menghapus data dari MongoDB Cloud.');
+        try {
+            await fetch(`/api/latihan?id=${id}`, { method: 'DELETE' });
+        } catch (err) {
+            console.warn("Could not delete from MongoDB Cloud:", err);
         }
+        await deleteLocalItem(id);
     }
 }
 
@@ -757,7 +874,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 itemData.id = editId.value;
             }
 
-            await DatabaseService.save(itemData);
+            const saveRes = await DatabaseService.save(itemData);
             closeModal();
 
             if (syncChannel) {
@@ -765,7 +882,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
 
             await loadData();
-            showToast('✓ Data Latihan Berhasil Tersimpan Langsung ke MongoDB Cloud!');
+            if (saveRes && saveRes.isCloud) {
+                showToast('✓ Data Latihan Berhasil Tersimpan Langsung ke MongoDB Cloud!');
+            } else {
+                showToast('⚠️ Data Tersimpan di Perangkat (Offline/Lokal)', 'error');
+            }
         } catch (err) {
             console.error("Gagal menyimpan data:", err);
             showToast('Gagal menyimpan data: ' + (err.message || err), 'error');
