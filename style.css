@@ -670,7 +670,7 @@ body {
 
 .print-header {
     text-align: center;
-    margin-bottom: 20px;
+    margin-bottom: 28px;
 }
 
 .print-title {
@@ -693,8 +693,8 @@ body {
 
 .print-table th, .print-table td {
     border: 1px solid #000000;
-    padding: 8px;
-    vertical-align: top;
+    padding: 10px 8px;
+    vertical-align: middle;
     color: #000000;
 }
 
@@ -734,8 +734,12 @@ body {
     break-after: auto;
 }
 
+.print-page.page-first {
+    padding-top: 4mm;
+}
+
 .print-page.page-subsequent {
-    padding-top: 14mm;
+    padding-top: 22mm;
 }
 
 .print-doc-grid {
@@ -770,7 +774,7 @@ body {
         top: 0;
         width: 100%;
         margin: 0;
-        padding: 10mm;
+        padding: 8mm 10mm 5mm 10mm;
     }
     .print-page {
         page-break-after: always;
@@ -782,6 +786,6 @@ body {
     }
     @page {
         size: A4 landscape;
-        margin: 10mm;
+        margin: 8mm 10mm 5mm 10mm;
     }
 }
