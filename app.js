@@ -38,14 +38,31 @@ class DatabaseService {
 
     static async getAll() {
         const cloudResult = await this.getAllCloud();
+        let items = [];
         if (cloudResult.isOnline && cloudResult.data) {
-            // Keep local synced
-            for (const item of cloudResult.data) {
+            items = cloudResult.data;
+            for (const item of items) {
                 await this.saveLocal(item);
             }
-            return cloudResult.data;
+        } else {
+            items = await this.getAllLocal();
         }
-        return await this.getAllLocal();
+
+        // Merge local unsynced items if any exist
+        const localItems = await this.getAllLocal();
+        if (localItems && localItems.length > 0) {
+            const map = new Map();
+            items.forEach(i => map.set(String(i.id || i._id), i));
+            localItems.forEach(i => {
+                const key = String(i.id || i._id);
+                if (!map.has(key)) {
+                    map.set(key, i);
+                }
+            });
+            items = Array.from(map.values());
+        }
+
+        return items;
     }
 
     static async save(item) {
@@ -313,11 +330,19 @@ function renderApp() {
 
     // Filter Items
     const filteredList = latihanList.filter(item => {
-        const itemDate = new Date(item.tanggal + 'T00:00:00');
-        const itemMonth = String(itemDate.getMonth() + 1).padStart(2, '0');
-        const matchMonth = itemMonth === selectedBulan;
+        if (!item || !item.tanggal) return false;
+
+        let matchMonth = true;
+        if (selectedBulan && selectedBulan !== 'ALL') {
+            const itemDate = new Date(item.tanggal + 'T00:00:00');
+            if (!isNaN(itemDate)) {
+                const itemMonth = String(itemDate.getMonth() + 1).padStart(2, '0');
+                matchMonth = (itemMonth === selectedBulan);
+            }
+        }
+
         const matchTahun = !selectedTahun || (item.tahunPelajaran && item.tahunPelajaran.toLowerCase().includes(selectedTahun));
-        const matchQuery = !query || item.uraian.toLowerCase().includes(query);
+        const matchQuery = !query || (item.uraian && item.uraian.toLowerCase().includes(query));
 
         return matchMonth && matchTahun && matchQuery;
     });
@@ -333,7 +358,8 @@ function renderApp() {
         if (i.foto2) fotoCount++;
     });
     statTotalFoto.textContent = fotoCount;
-    statBulanAktif.textContent = `${MONTHS_ID[parseInt(selectedBulan, 10) - 1]} ${filterTahunPelajaran.value}`;
+    const monthText = selectedBulan === 'ALL' ? 'Semua Bulan' : MONTHS_ID[parseInt(selectedBulan, 10) - 1];
+    statBulanAktif.textContent = `${monthText} ${filterTahunPelajaran.value}`;
     badgeJumlahData.textContent = `${filteredList.length} Data Pertemuan`;
 
     // Render Web UI Table Body
@@ -386,8 +412,8 @@ function renderApp() {
 // Render Hidden Container specifically formatted for PDF / Print Output (Strict 2 Days = 4 Photos per Page)
 function renderPrintTable(filteredList) {
     const printArea = document.getElementById('printArea');
-    const monthIndex = parseInt(filterBulan.value, 10) - 1;
-    const namaBulanCaps = MONTHS_ID[monthIndex].toUpperCase();
+    const monthIndex = filterBulan.value === 'ALL' ? 0 : parseInt(filterBulan.value, 10) - 1;
+    const namaBulanCaps = filterBulan.value === 'ALL' ? 'SEMUA BULAN' : MONTHS_ID[monthIndex].toUpperCase();
     const tahunPelajaranStr = filterTahunPelajaran.value.trim();
 
     printArea.innerHTML = '';

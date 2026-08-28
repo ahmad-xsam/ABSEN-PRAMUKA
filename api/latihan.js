@@ -8,8 +8,10 @@ async function connectToDatabase() {
         return cachedDb;
     }
     
+    const validEnvUri = (process.env.MONGODB_URI && !process.env.MONGODB_URI.includes('cluster0.mongodb.net')) ? process.env.MONGODB_URI : null;
+
     const uriList = [
-        process.env.MONGODB_URI,
+        validEnvUri,
         "mongodb+srv://ahmadsamsudin27_db_user:pramukasordu123@cluster0.pe488oz.mongodb.net/pramuka_sordu?retryWrites=true&w=majority&appName=Cluster0",
         "mongodb+srv://ahmadsamsudin27_db_user:ahmadsamsudin27@cluster0.pe488oz.mongodb.net/pramuka_sordu?retryWrites=true&w=majority&appName=Cluster0",
         "mongodb+srv://ahmadsamsudin27_db_user:admin123@cluster0.pe488oz.mongodb.net/pramuka_sordu?retryWrites=true&w=majority&appName=Cluster0",
