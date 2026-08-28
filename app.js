@@ -356,7 +356,8 @@ function renderPrintTable(filteredList) {
     for (let i = 0; i < filteredList.length; i += itemsPerPage) {
         const pageItems = filteredList.slice(i, i + itemsPerPage);
         const pageDiv = document.createElement('div');
-        pageDiv.className = 'print-page';
+        const isFirstPage = (i === 0);
+        pageDiv.className = `print-page ${isFirstPage ? 'page-first' : 'page-subsequent'}`;
 
         let rowsHtml = '';
         pageItems.forEach((item, pageIndex) => {
@@ -377,13 +378,17 @@ function renderPrintTable(filteredList) {
             `;
         });
 
-        pageDiv.innerHTML = `
+        const headerHtml = isFirstPage ? `
             <div class="print-header">
                 <h1 class="print-title">LAPORAN KEGIATAN EKSTRAKURIKULER</h1>
                 <h1 class="print-title">PRAMUKA BULAN ${namaBulanCaps}</h1>
                 <h1 class="print-title">TAHUN PELAJARAN ${tahunPelajaranStr}</h1>
             </div>
-            <table class="print-table">
+        ` : '';
+
+        pageDiv.innerHTML = `
+            ${headerHtml}
+            <table class="print-table ${isFirstPage ? 'table-page-first' : 'table-page-subsequent'}">
                 <thead>
                     <tr>
                         <th class="col-no">No</th>

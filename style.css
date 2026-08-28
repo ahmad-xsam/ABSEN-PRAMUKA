@@ -744,12 +744,20 @@ body {
     width: 100%;
 }
 
-.print-doc-grid img {
-    width: 49%;
-    height: 145px;
-    object-fit: cover;
-    border: 1px solid #000000;
-    display: block;
+.table-page-first .print-doc-grid img {
+    height: 142px;
+}
+
+.table-page-subsequent {
+    margin-top: 5px;
+}
+
+.table-page-subsequent td {
+    padding: 14px 8px;
+}
+
+.table-page-subsequent .print-doc-grid img {
+    height: 175px;
 }
 
 
