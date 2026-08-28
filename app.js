@@ -15,6 +15,79 @@ const DB_VERSION = 1;
 const STORE_NAME = 'latihan';
 
 class DatabaseService {
+    // Sync directly with MongoDB Atlas Serverless API; fallback to IndexedDB if offline
+    static async getAll() {
+        try {
+            const res = await fetch('/api/latihan');
+            if (res.ok) {
+                const json = await res.json();
+                if (json.success && Array.isArray(json.data)) {
+                    return json.data.map(item => ({
+                        ...item,
+                        id: item._id || item.id
+                    }));
+                }
+            }
+        } catch (err) {
+            console.warn("MongoDB REST API offline, falling back to local storage:", err);
+        }
+        return this.getAllLocal();
+    }
+
+    static async save(item) {
+        try {
+            const isEdit = item.id && !item.id.startsWith('seed-');
+            const url = isEdit ? `/api/latihan?id=${item.id}` : '/api/latihan';
+            const method = isEdit ? 'PUT' : 'POST';
+
+            const res = await fetch(url, {
+                method: method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(item)
+            });
+
+            if (res.ok) {
+                const json = await res.json();
+                if (json.success && json.data) {
+                    const savedItem = { ...json.data, id: json.data._id || json.data.id };
+                    await this.saveLocal(savedItem);
+                    return savedItem;
+                }
+            }
+        } catch (err) {
+            console.warn("Error saving to MongoDB API, saving locally:", err);
+        }
+        return this.saveLocal(item);
+    }
+
+    static async delete(id) {
+        try {
+            await fetch(`/api/latihan?id=${id}`, { method: 'DELETE' });
+        } catch (err) {
+            console.warn("Error deleting from MongoDB API:", err);
+        }
+        return this.deleteLocal(id);
+    }
+
+    static async bulkSave(items) {
+        try {
+            const res = await fetch('/api/latihan', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(items)
+            });
+            if (res.ok) {
+                await this.clearAllLocal();
+                for (const item of items) {
+                    await this.saveLocal(item);
+                }
+            }
+        } catch (err) {
+            console.warn("Error bulk saving to MongoDB API:", err);
+        }
+    }
+
+    // Local IndexedDB Fallbacks
     static openDB() {
         return new Promise((resolve, reject) => {
             const request = indexedDB.open(DB_NAME, DB_VERSION);
@@ -29,7 +102,7 @@ class DatabaseService {
         });
     }
 
-    static async getAll() {
+    static async getAllLocal() {
         const db = await this.openDB();
         return new Promise((resolve, reject) => {
             const tx = db.transaction(STORE_NAME, 'readonly');
@@ -40,7 +113,7 @@ class DatabaseService {
         });
     }
 
-    static async save(item) {
+    static async saveLocal(item) {
         const db = await this.openDB();
         return new Promise((resolve, reject) => {
             const tx = db.transaction(STORE_NAME, 'readwrite');
@@ -51,7 +124,7 @@ class DatabaseService {
         });
     }
 
-    static async delete(id) {
+    static async deleteLocal(id) {
         const db = await this.openDB();
         return new Promise((resolve, reject) => {
             const tx = db.transaction(STORE_NAME, 'readwrite');
@@ -62,7 +135,7 @@ class DatabaseService {
         });
     }
 
-    static async clearAll() {
+    static async clearAllLocal() {
         const db = await this.openDB();
         return new Promise((resolve, reject) => {
             const tx = db.transaction(STORE_NAME, 'readwrite');
