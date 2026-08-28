@@ -9,208 +9,90 @@ const MONTHS_ID = [
     'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
 ];
 
-// IndexedDB Helper
-const DB_NAME = 'PramukaSorduDB';
-const DB_VERSION = 1;
-const STORE_NAME = 'latihan';
+// Real-Time Multi-Tab & Device Sync Channel
+const syncChannel = (typeof BroadcastChannel !== 'undefined') ? new BroadcastChannel('pramuka_sordu_sync') : null;
+
+// Non-blocking Toast Notification (No blocking alert dialogs)
+function showToast(message, type = 'success') {
+    let toast = document.getElementById('toastNotice');
+    if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'toastNotice';
+        toast.style.cssText = 'position: fixed; bottom: 24px; right: 24px; z-index: 99999; padding: 14px 22px; border-radius: 12px; font-weight: 600; font-size: 14px; box-shadow: 0 10px 25px rgba(0,0,0,0.25); transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); display: flex; align-items: center; gap: 10px; color: #ffffff; pointer-events: none;';
+        document.body.appendChild(toast);
+    }
+    toast.style.backgroundColor = type === 'success' ? '#2E7D32' : '#D32F2F';
+    toast.innerHTML = `<i class="fa-solid ${type === 'success' ? 'fa-circle-check' : 'fa-circle-exclamation'}"></i> ${message}`;
+    toast.style.opacity = '1';
+    toast.style.transform = 'translateY(0)';
+
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(20px)';
+    }, 2800);
+}
 
 const DEFAULT_SCOUT_PHOTO = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300" viewBox="0 0 400 300"><rect width="400" height="300" fill="%235D4037"/><circle cx="200" cy="120" r="45" fill="%23FF8F00"/><text x="50%" y="220" dominant-baseline="middle" text-anchor="middle" fill="%23FFFFFF" font-family="sans-serif" font-size="20" font-weight="bold">PRAMUKA SORDU</text><text x="50%" y="250" dominant-baseline="middle" text-anchor="middle" fill="%23E0E0E0" font-family="sans-serif" font-size="14">Dokumentasi Latihan</text></svg>';
 
 class DatabaseService {
-    static async getAllCloud() {
-        try {
-            const res = await fetch(`/api/latihan?_t=${Date.now()}`, {
-                headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
-            });
-            if (res.ok) {
-                const json = await res.json();
-                if (json.success && Array.isArray(json.data)) {
-                    const items = json.data.map(item => ({
-                        ...item,
-                        id: item._id || item.id
-                    }));
-                    return { isOnline: true, data: items };
-                }
-            } else {
-                console.warn("MongoDB Cloud API response not OK:", res.status, res.statusText);
-            }
-        } catch (err) {
-            console.warn("MongoDB Cloud API fetch failed:", err);
-        }
-        return { isOnline: false, data: null };
-    }
-
     static async getAll() {
-        const cloudResult = await this.getAllCloud();
-        
-        if (cloudResult.isOnline && cloudResult.data) {
-            // 1. Sync local IndexedDB cache with fresh cloud items
-            await this.clearAllLocal();
-            for (const item of cloudResult.data) {
-                await this.saveLocal(item);
-            }
-
-            // 2. Check for any unsynced local records created offline and upload them to MongoDB Cloud
-            const localItems = await this.getAllLocal();
-            const unsynced = localItems.filter(i => String(i.id || '').startsWith('loc_'));
-            if (unsynced.length > 0) {
-                for (const item of unsynced) {
-                    console.log("Auto-migrating offline local item to MongoDB Cloud:", item);
-                    const syncRes = await this.save(item);
-                    if (syncRes.isCloud) {
-                        await this.deleteLocal(item.id);
-                    }
-                }
-                const refreshed = await this.getAllCloud();
-                if (refreshed.isOnline && refreshed.data) {
-                    return refreshed.data;
-                }
-            }
-
-            return cloudResult.data;
+        const res = await fetch(`/api/latihan?_t=${Date.now()}`, {
+            headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate', 'Pragma': 'no-cache' }
+        });
+        if (!res.ok) {
+            throw new Error(`HTTP ${res.status}: Gagal terhubung ke MongoDB Cloud API`);
         }
-
-        // Fallback to local storage if cloud is unreachable
-        return await this.getAllLocal();
+        const json = await res.json();
+        if (json.success && Array.isArray(json.data)) {
+            return json.data.map(item => ({
+                ...item,
+                id: item._id || item.id
+            }));
+        }
+        return [];
     }
 
     static async save(item) {
-        let isCloudSaved = false;
-        let savedItem = { ...item };
-        let cloudError = null;
+        const isValidMongoId = item.id && /^[0-9a-fA-F]{24}$/.test(String(item.id));
+        const isEdit = Boolean(isValidMongoId);
+        const url = isEdit ? `/api/latihan?id=${item.id}` : '/api/latihan';
+        const method = isEdit ? 'PUT' : 'POST';
 
-        try {
-            const isValidMongoId = item.id && /^[0-9a-fA-F]{24}$/.test(String(item.id));
-            const isEdit = Boolean(isValidMongoId);
-            const url = isEdit ? `/api/latihan?id=${item.id}` : '/api/latihan';
-            const method = isEdit ? 'PUT' : 'POST';
-
-            const payload = { ...item };
-            if (!isValidMongoId) {
-                delete payload.id;
-                delete payload._id;
-            }
-
-            if (!payload.foto1) payload.foto1 = DEFAULT_SCOUT_PHOTO;
-            if (!payload.foto2) payload.foto2 = DEFAULT_SCOUT_PHOTO;
-
-            const res = await fetch(url, {
-                method: method,
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-
-            if (res.ok) {
-                const json = await res.json();
-                if (json.success && json.data) {
-                    savedItem = { ...json.data, id: json.data._id || json.data.id };
-                    isCloudSaved = true;
-                } else {
-                    cloudError = (json && json.error) ? json.error : 'Format respons server tidak valid';
-                }
-            } else {
-                const errText = await res.text();
-                cloudError = `HTTP ${res.status}: ${res.statusText} ${errText}`;
-            }
-        } catch (err) {
-            cloudError = err.message || 'Koneksi jaringan terputus';
-            console.warn("Could not save to MongoDB Cloud API:", err);
+        const payload = { ...item };
+        if (!isValidMongoId) {
+            delete payload.id;
+            delete payload._id;
         }
 
-        // Always update local IndexedDB cache as well
-        if (!savedItem.id) {
-            savedItem.id = 'loc_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6);
-        }
-        await this.saveLocal(savedItem);
+        if (!payload.foto1) payload.foto1 = DEFAULT_SCOUT_PHOTO;
+        if (!payload.foto2) payload.foto2 = DEFAULT_SCOUT_PHOTO;
 
-        return { isCloud: isCloudSaved, error: cloudError, data: savedItem };
+        const res = await fetch(url, {
+            method: method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) {
+            const errText = await res.text();
+            throw new Error(`Gagal menyimpan ke MongoDB Cloud: HTTP ${res.status} ${errText}`);
+        }
+
+        const json = await res.json();
+        if (json.success && json.data) {
+            return {
+                ...json.data,
+                id: json.data._id || json.data.id
+            };
+        }
+        throw new Error('Respon dari MongoDB API tidak valid.');
     }
 
     static async delete(id) {
-        try {
-            await fetch(`/api/latihan?id=${id}`, { method: 'DELETE' });
-            await this.deleteLocal(id);
-        } catch (err) {
-            console.error("Error deleting from MongoDB REST API:", err);
-            await this.deleteLocal(id);
+        const res = await fetch(`/api/latihan?id=${id}`, { method: 'DELETE' });
+        if (!res.ok) {
+            throw new Error('Gagal menghapus data dari MongoDB Cloud.');
         }
-    }
-
-    static async bulkSave(items) {
-        try {
-            const res = await fetch('/api/latihan', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(items)
-            });
-            if (res.ok) {
-                await this.clearAllLocal();
-                for (const item of items) {
-                    await this.saveLocal(item);
-                }
-            }
-        } catch (err) {
-            console.warn("Error bulk saving to MongoDB API:", err);
-        }
-    }
-
-    // Local IndexedDB Fallbacks
-    static openDB() {
-        return new Promise((resolve, reject) => {
-            const request = indexedDB.open(DB_NAME, DB_VERSION);
-            request.onupgradeneeded = (e) => {
-                const db = e.target.result;
-                if (!db.objectStoreNames.contains(STORE_NAME)) {
-                    db.createObjectStore(STORE_NAME, { keyPath: 'id' });
-                }
-            };
-            request.onsuccess = () => resolve(request.result);
-            request.onerror = () => reject(request.error);
-        });
-    }
-
-    static async getAllLocal() {
-        const db = await this.openDB();
-        return new Promise((resolve, reject) => {
-            const tx = db.transaction(STORE_NAME, 'readonly');
-            const store = tx.objectStore(STORE_NAME);
-            const request = store.getAll();
-            request.onsuccess = () => resolve(request.result);
-            request.onerror = () => reject(request.error);
-        });
-    }
-
-    static async saveLocal(item) {
-        const db = await this.openDB();
-        return new Promise((resolve, reject) => {
-            const tx = db.transaction(STORE_NAME, 'readwrite');
-            const store = tx.objectStore(STORE_NAME);
-            const request = store.put(item);
-            request.onsuccess = () => resolve(request.result);
-            request.onerror = () => reject(request.error);
-        });
-    }
-
-    static async deleteLocal(id) {
-        const db = await this.openDB();
-        return new Promise((resolve, reject) => {
-            const tx = db.transaction(STORE_NAME, 'readwrite');
-            const store = tx.objectStore(STORE_NAME);
-            const request = store.delete(id);
-            request.onsuccess = () => resolve(request.result);
-            request.onerror = () => reject(request.error);
-        });
-    }
-
-    static async clearAllLocal() {
-        const db = await this.openDB();
-        return new Promise((resolve, reject) => {
-            const tx = db.transaction(STORE_NAME, 'readwrite');
-            const store = tx.objectStore(STORE_NAME);
-            const request = store.clear();
-            request.onsuccess = () => resolve(request.result);
-            request.onerror = () => reject(request.error);
-        });
     }
 }
 
@@ -310,27 +192,22 @@ async function initSeedData() {
 // Render Dashboard Data & Tables
 async function loadData() {
     const syncStatus = document.getElementById('syncStatus');
-    let isCloudActive = false;
 
     try {
         latihanList = await DatabaseService.getAll();
-        const cloudRes = await DatabaseService.getAllCloud();
-        isCloudActive = cloudRes.isOnline;
-    } catch (e) {
-        latihanList = await DatabaseService.getAllLocal();
-    }
-
-    if (syncStatus) {
-        if (isCloudActive) {
-            syncStatus.innerHTML = '<i class="fa-solid fa-circle" style="color: #2E7D32;"></i> Real-time MongoDB Active (Multi-Perangkat)';
+        if (syncStatus) {
+            syncStatus.innerHTML = '<i class="fa-solid fa-circle" style="color: #2E7D32;"></i> MongoDB Atlas Live Sync Active (100% Direct Cloud)';
             syncStatus.style.backgroundColor = '#E8F5E9';
             syncStatus.style.color = '#2E7D32';
             syncStatus.style.borderColor = '#A5D6A7';
-        } else {
-            syncStatus.innerHTML = '<i class="fa-solid fa-circle-exclamation" style="color: #E65100;"></i> MongoDB Atlas Standby (Lokal)';
-            syncStatus.style.backgroundColor = '#FFF3E0';
-            syncStatus.style.color = '#E65100';
-            syncStatus.style.borderColor = '#FFE0B2';
+        }
+    } catch (e) {
+        console.warn("MongoDB Atlas Cloud connection error:", e);
+        if (syncStatus) {
+            syncStatus.innerHTML = '<i class="fa-solid fa-circle-exclamation" style="color: #D32F2F;"></i> Terputus dari MongoDB Cloud API';
+            syncStatus.style.backgroundColor = '#FFEBEE';
+            syncStatus.style.color = '#D32F2F';
+            syncStatus.style.borderColor = '#FFCDD2';
         }
     }
 
@@ -668,7 +545,9 @@ window.hapusData = async function(id) {
     checkAuthOrPrompt(async () => {
         if (confirm('Apakah Anda yakin ingin menghapus data latihan ini?')) {
             await DatabaseService.delete(id);
+            if (syncChannel) syncChannel.postMessage('update');
             await loadData();
+            showToast('✓ Data berhasil dihapus dari MongoDB Cloud');
         }
     });
 };
@@ -713,10 +592,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     await initSeedData();
     await loadData();
 
-    // Auto-polling for multi-device live sync (fetches every 3 seconds)
+    // Fast Auto-polling for multi-device instant live sync (fetches every 1 second)
     setInterval(async () => {
         await loadData();
-    }, 3000);
+    }, 1000);
+
+    if (syncChannel) {
+        syncChannel.onmessage = async () => {
+            await loadData();
+        };
+    }
 
     // Auto-sync when phone screen unlocks, tab active, network online, or page shown
     ['visibilitychange', 'focus', 'online', 'pageshow'].forEach(eventType => {
@@ -872,19 +757,18 @@ document.addEventListener('DOMContentLoaded', async () => {
                 itemData.id = editId.value;
             }
 
-            const saveResult = await DatabaseService.save(itemData);
+            await DatabaseService.save(itemData);
             closeModal();
 
-            if (saveResult && saveResult.isCloud) {
-                alert('✓ DATA LATIHAN BERHASIL DISIMPAN KE MONGODB CLOUD ONLINE!\n\nData telah langsung terupdate dan dapat dilihat/diakses di seluruh perangkat (HP & Laptop) secara real-time.');
-            } else {
-                const cause = saveResult.error ? ('Detail error: ' + saveResult.error) : 'Penyebab: Serverless API tidak dapat menjangkau MongoDB Atlas';
-                alert('⚠️ PERHATIAN: Data disimpan sementara di Perangkat ini (Lokal).\n\n' + cause + '\n\nLangkah penyelesaian agar tersinkronisasi ke semua HP/Laptop:\n1. Pastikan variabel MONGODB_URI di Vercel Settings -> Environment Variables sudah diisi.\n2. Di Dashboard MongoDB Atlas -> Network Access, pastikan IP 0.0.0.0/0 (Allow Access from Anywhere) sudah ditambahkan.');
+            if (syncChannel) {
+                syncChannel.postMessage('update');
             }
+
             await loadData();
+            showToast('✓ Data Latihan Berhasil Tersimpan Langsung ke MongoDB Cloud!');
         } catch (err) {
             console.error("Gagal menyimpan data:", err);
-            alert('Gagal menyimpan data: ' + (err.message || err));
+            showToast('Gagal menyimpan data: ' + (err.message || err), 'error');
         } finally {
             if (btnSimpan) {
                 btnSimpan.disabled = false;

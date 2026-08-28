@@ -9,30 +9,38 @@ async function connectToDatabase() {
     }
     
     const envUri = (process.env.MONGODB_URI && process.env.MONGODB_URI.trim().length > 0) ? process.env.MONGODB_URI.trim() : null;
+    const primaryUri = envUri || "mongodb+srv://ahmadsamsudin27_db_user:pramukasordu123@cluster0.pe488oz.mongodb.net/pramuka_sordu?retryWrites=true&w=majority&appName=Cluster0";
 
-    const uriList = [
-        envUri,
-        "mongodb+srv://ahmadsamsudin27_db_user:pramukasordu123@cluster0.pe488oz.mongodb.net/pramuka_sordu?retryWrites=true&w=majority&appName=Cluster0",
+    const fallbackUris = [
         "mongodb+srv://ahmadsamsudin27_db_user:ahmadsamsudin27@cluster0.pe488oz.mongodb.net/pramuka_sordu?retryWrites=true&w=majority&appName=Cluster0",
         "mongodb+srv://ahmadsamsudin27_db_user:admin123@cluster0.pe488oz.mongodb.net/pramuka_sordu?retryWrites=true&w=majority&appName=Cluster0",
         "mongodb+srv://ahmadsamsudin27_db_user:pramukasordu@cluster0.pe488oz.mongodb.net/pramuka_sordu?retryWrites=true&w=majority&appName=Cluster0"
-    ].filter(Boolean);
+    ];
 
-    let lastError = null;
-    for (const uri of uriList) {
-        try {
-            const db = await mongoose.connect(uri, { 
-                bufferCommands: false,
-                serverSelectionTimeoutMS: 4000
-            });
-            cachedDb = db;
-            return db;
-        } catch (err) {
-            lastError = err;
-            console.warn("MongoDB connection attempt error for URI, trying next fallback...", err.message);
+    try {
+        const db = await mongoose.connect(primaryUri, {
+            bufferCommands: false,
+            serverSelectionTimeoutMS: 2500,
+            connectTimeoutMS: 2500
+        });
+        cachedDb = db;
+        return db;
+    } catch (err) {
+        console.warn("Primary MongoDB URI failed, trying fallback URIs...", err.message);
+        for (const uri of fallbackUris) {
+            try {
+                const db = await mongoose.connect(uri, {
+                    bufferCommands: false,
+                    serverSelectionTimeoutMS: 2500
+                });
+                cachedDb = db;
+                return db;
+            } catch (e) {
+                // Continue to next fallback
+            }
         }
+        throw err;
     }
-    throw lastError;
 }
 
 // Mongoose Schema Definition for Pramuka Sordu Latihan Record
