@@ -727,13 +727,15 @@ body {
     box-sizing: border-box;
     page-break-after: always;
     break-after: page;
-    margin-bottom: 20px;
 }
 
 .print-page:last-child {
     page-break-after: auto;
     break-after: auto;
-    margin-bottom: 0;
+}
+
+.print-page.page-subsequent {
+    padding-top: 14mm;
 }
 
 .print-doc-grid {
@@ -744,20 +746,12 @@ body {
     width: 100%;
 }
 
-.table-page-first .print-doc-grid img {
-    height: 142px;
-}
-
-.table-page-subsequent {
-    margin-top: 5px;
-}
-
-.table-page-subsequent td {
-    padding: 14px 8px;
-}
-
-.table-page-subsequent .print-doc-grid img {
-    height: 175px;
+.print-doc-grid img {
+    width: 49%;
+    height: 150px;
+    object-fit: cover;
+    border: 1px solid #000000;
+    display: block;
 }
 
 
@@ -776,7 +770,7 @@ body {
         top: 0;
         width: 100%;
         margin: 0;
-        padding: 8mm;
+        padding: 10mm;
     }
     .print-page {
         page-break-after: always;
@@ -788,6 +782,6 @@ body {
     }
     @page {
         size: A4 landscape;
-        margin: 8mm;
+        margin: 10mm;
     }
 }
