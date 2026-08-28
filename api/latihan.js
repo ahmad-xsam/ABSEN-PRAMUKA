@@ -1,13 +1,22 @@
 const mongoose = require('mongoose');
 
-// MongoDB Atlas Connection URI with User's Cluster Hostname: cluster0.pe488oz.mongodb.net
-let cachedDb = null;
+let cachedConn = null;
 
-async function connectToDatabase() {
-    if (cachedDb && mongoose.connection.readyState === 1) {
-        return cachedDb;
+// Mongoose Schema Definition for Pramuka Sordu Latihan Record
+const LatihanSchema = new mongoose.Schema({
+    tanggal: { type: String, required: true },
+    tahunPelajaran: { type: String, required: true },
+    uraian: { type: String, required: true },
+    foto1: { type: String, required: true },
+    foto2: { type: String, required: true },
+    createdAt: { type: Date, default: Date.now }
+});
+
+async function getLatihanModel() {
+    if (cachedConn && cachedConn.readyState === 1) {
+        return cachedConn.models.Latihan || cachedConn.model('Latihan', LatihanSchema);
     }
-    
+
     const envUri = (process.env.MONGODB_URI && process.env.MONGODB_URI.trim().length > 0) ? process.env.MONGODB_URI.trim() : null;
 
     const uriList = [
@@ -21,15 +30,12 @@ async function connectToDatabase() {
     let lastError = null;
     for (const uri of uriList) {
         try {
-            if (mongoose.connection.readyState !== 0) {
-                await mongoose.disconnect();
-            }
-            const db = await mongoose.connect(uri, { 
+            const conn = await mongoose.createConnection(uri, { 
                 bufferCommands: false,
-                serverSelectionTimeoutMS: 3000
-            });
-            cachedDb = db;
-            return db;
+                serverSelectionTimeoutMS: 4000
+            }).asPromise();
+            cachedConn = conn;
+            return conn.models.Latihan || conn.model('Latihan', LatihanSchema);
         } catch (err) {
             lastError = err;
             console.warn("MongoDB connection attempt error for URI, trying next fallback...", err.message);
@@ -37,18 +43,6 @@ async function connectToDatabase() {
     }
     throw lastError;
 }
-
-// Mongoose Schema Definition for Pramuka Sordu Latihan Record
-const LatihanSchema = new mongoose.Schema({
-    tanggal: { type: String, required: true },
-    tahunPelajaran: { type: String, required: true },
-    uraian: { type: String, required: true },
-    foto1: { type: String, required: true },
-    foto2: { type: String, required: true },
-    createdAt: { type: Date, default: Date.now }
-});
-
-const Latihan = mongoose.models.Latihan || mongoose.model('Latihan', LatihanSchema);
 
 module.exports = async (req, res) => {
     // Set CORS & Strict No-Cache headers for real-time multi-device sync
@@ -66,7 +60,7 @@ module.exports = async (req, res) => {
     }
 
     try {
-        await connectToDatabase();
+        const Latihan = await getLatihanModel();
 
         const { method } = req;
         const { id } = req.query;
