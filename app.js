@@ -22,16 +22,18 @@ class DatabaseService {
             if (res.ok) {
                 const json = await res.json();
                 if (json.success && Array.isArray(json.data)) {
-                    return json.data.map(item => ({
+                    const items = json.data.map(item => ({
                         ...item,
                         id: item._id || item.id
                     }));
+                    return { isOnline: true, data: items };
                 }
             }
         } catch (err) {
             console.warn("MongoDB REST API offline, falling back to local storage:", err);
         }
-        return this.getAllLocal();
+        const localItems = await this.getAllLocal();
+        return { isOnline: false, data: localItems };
     }
 
     static async save(item) {
@@ -59,7 +61,7 @@ class DatabaseService {
                 if (json.success && json.data) {
                     const savedItem = { ...json.data, id: json.data._id || json.data.id };
                     await this.saveLocal(savedItem);
-                    return savedItem;
+                    return { success: true, isOnline: true, data: savedItem };
                 }
             } else {
                 console.error("MongoDB API error status:", res.status);
@@ -67,7 +69,8 @@ class DatabaseService {
         } catch (err) {
             console.warn("Error saving to MongoDB API, saving locally:", err);
         }
-        return this.saveLocal(item);
+        const localItem = await this.saveLocal(item);
+        return { success: true, isOnline: false, data: localItem };
     }
 
     static async delete(id) {
@@ -254,13 +257,24 @@ async function initSeedData() {
 async function loadData() {
     const syncStatus = document.getElementById('syncStatus');
     try {
-        latihanList = await DatabaseService.getAll();
+        const result = await DatabaseService.getAll();
+        latihanList = result.data || [];
         if (syncStatus) {
-            syncStatus.innerHTML = '<i class="fa-solid fa-circle" style="color: #2E7D32;"></i> MongoDB Atlas Live Sync (HP & Laptop)';
+            if (result.isOnline) {
+                syncStatus.innerHTML = '<i class="fa-solid fa-circle" style="color: #2E7D32;"></i> Terhubung MongoDB Atlas Cloud (Live Synchronized)';
+                syncStatus.style.backgroundColor = '#E8F5E9';
+                syncStatus.style.color = '#2E7D32';
+                syncStatus.style.borderColor = '#A5D6A7';
+            } else {
+                syncStatus.innerHTML = '<i class="fa-solid fa-circle" style="color: #D32F2F;"></i> Penyimpanan Lokal (Belum Konek Server Vercel/MongoDB)';
+                syncStatus.style.backgroundColor = '#FFEBEE';
+                syncStatus.style.color = '#D32F2F';
+                syncStatus.style.borderColor = '#EF9A9A';
+            }
         }
     } catch (e) {
         if (syncStatus) {
-            syncStatus.innerHTML = '<i class="fa-solid fa-circle" style="color: #FF8F00;"></i> Offline Mode (IndexedDB)';
+            syncStatus.innerHTML = '<i class="fa-solid fa-circle" style="color: #D32F2F;"></i> Offline Mode (IndexedDB)';
         }
     }
     renderApp();
@@ -759,8 +773,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             itemData.id = editId.value;
         }
 
-        await DatabaseService.save(itemData);
+        const saveResult = await DatabaseService.save(itemData);
         closeModal();
+        if (saveResult && !saveResult.isOnline) {
+            alert('PERHATIAN: Perangkat ini belum terhubung ke Server Cloud MongoDB Vercel!\n\nData tersimpan di memori HP/Laptop ini saja. Agar data sinkron di semua HP & Laptop, pastikan kedua perangkat membuka Web URL Vercel yang sama (contoh: https://absen-pramuka.vercel.app), bukan membuka file HTML lokal!');
+        }
         await loadData();
     });
 
