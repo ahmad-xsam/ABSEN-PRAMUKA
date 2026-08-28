@@ -31,11 +31,15 @@ const LatihanSchema = new mongoose.Schema({
 const Latihan = mongoose.models.Latihan || mongoose.model('Latihan', LatihanSchema);
 
 module.exports = async (req, res) => {
-    // Set CORS headers for cross-origin access
+    // Set CORS & Strict No-Cache headers for real-time multi-device sync
     res.setHeader('Access-Control-Allow-Credentials', 'true');
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
     res.setHeader('Access-Control-Allow-Headers', 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version');
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    res.setHeader('Surrogate-Control', 'no-store');
 
     if (req.method === 'OPTIONS') {
         return res.status(200).end();

@@ -20,8 +20,53 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <!-- App Container -->
-    <div class="app-container">
+    <!-- Dedicated Initial Fullscreen Login Landing View -->
+    <div id="loginLandingScreen" class="login-landing-wrapper">
+        <div class="login-landing-card">
+            <div class="landing-header">
+                <div class="landing-logo">
+                    <i class="fa-solid fa-compass"></i>
+                </div>
+                <h2>E-Rekap Pramuka Sordu</h2>
+                <p>Sistem Informasi & Laporan Latihan Ekstrakurikuler</p>
+                <div class="landing-badge">
+                    <i class="fa-solid fa-user-shield"></i> Portal Login Pembina Pramuka
+                </div>
+            </div>
+
+            <form id="formLoginLanding" class="landing-form">
+                <div id="loginAlertLanding" class="alert alert-danger hidden">
+                    <i class="fa-solid fa-triangle-exclamation"></i> <span id="loginAlertTextLanding">Username atau Password salah!</span>
+                </div>
+
+                <div class="form-group">
+                    <label for="loginUsernameLanding"><i class="fa-solid fa-user"></i> Username Pembina</label>
+                    <input type="text" id="loginUsernameLanding" placeholder="Masukkan username (cth: admin)" required autocomplete="username">
+                </div>
+
+                <div class="form-group">
+                    <label for="loginPasswordLanding"><i class="fa-solid fa-key"></i> Password</label>
+                    <div class="password-input-wrapper">
+                        <input type="password" id="loginPasswordLanding" placeholder="Masukkan password" required autocomplete="current-password">
+                        <button type="button" class="btn-toggle-password" id="btnTogglePasswordLanding">
+                            <i class="fa-solid fa-eye" id="iconTogglePasswordLanding"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-primary btn-block btn-lg" id="btnSubmitLoginLanding">
+                    <i class="fa-solid fa-right-to-bracket"></i> Masuk Ke Aplikasi
+                </button>
+
+                <div class="landing-footer-note">
+                    <i class="fa-solid fa-cloud"></i> Real-time MongoDB Atlas Multi-Device Sync Active (HP & Laptop)
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Main App Container (Hidden until logged in) -->
+    <div class="app-container hidden" id="appContainer">
         
         <!-- Sidebar / Navigation Header -->
         <header class="app-header">

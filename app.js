@@ -18,7 +18,7 @@ class DatabaseService {
     // Sync directly with MongoDB Atlas Serverless API; fallback to IndexedDB if offline
     static async getAll() {
         try {
-            const res = await fetch('/api/latihan');
+            const res = await fetch(`/api/latihan?_t=${Date.now()}`);
             if (res.ok) {
                 const json = await res.json();
                 if (json.success && Array.isArray(json.data)) {
@@ -537,10 +537,17 @@ const iconTogglePassword = document.getElementById('iconTogglePassword');
 
 function updateAuthUI() {
     const isLoggedIn = localStorage.getItem('pramuka_sordu_auth') === 'true';
+    const loginLandingScreen = document.getElementById('loginLandingScreen');
+    const appContainer = document.getElementById('appContainer');
+
     if (isLoggedIn) {
+        if (loginLandingScreen) loginLandingScreen.classList.add('hidden');
+        if (appContainer) appContainer.classList.remove('hidden');
         if (btnLoginNav) btnLoginNav.classList.add('hidden');
         if (userProfileArea) userProfileArea.classList.remove('hidden');
     } else {
+        if (loginLandingScreen) loginLandingScreen.classList.remove('hidden');
+        if (appContainer) appContainer.classList.add('hidden');
         if (btnLoginNav) btnLoginNav.classList.remove('hidden');
         if (userProfileArea) userProfileArea.classList.add('hidden');
     }
@@ -825,4 +832,39 @@ document.addEventListener('DOMContentLoaded', async () => {
             reader.readAsText(e.target.files[0]);
         }
     });
+    // Fullscreen Landing Login Form Submission
+    const formLoginLanding = document.getElementById('formLoginLanding');
+    const loginUsernameLanding = document.getElementById('loginUsernameLanding');
+    const loginPasswordLanding = document.getElementById('loginPasswordLanding');
+    const loginAlertLanding = document.getElementById('loginAlertLanding');
+    const loginAlertTextLanding = document.getElementById('loginAlertTextLanding');
+    const btnTogglePasswordLanding = document.getElementById('btnTogglePasswordLanding');
+    const iconTogglePasswordLanding = document.getElementById('iconTogglePasswordLanding');
+
+    if (btnTogglePasswordLanding) {
+        btnTogglePasswordLanding.addEventListener('click', () => {
+            const type = loginPasswordLanding.getAttribute('type') === 'password' ? 'text' : 'password';
+            loginPasswordLanding.setAttribute('type', type);
+            iconTogglePasswordLanding.className = type === 'password' ? 'fa-solid fa-eye' : 'fa-solid fa-eye-slash';
+        });
+    }
+
+    if (formLoginLanding) {
+        formLoginLanding.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const username = loginUsernameLanding.value.trim();
+            const password = loginPasswordLanding.value;
+
+            if ((username === 'admin' || username === 'pembina') && (password === 'pramukasordu' || password === 'admin123')) {
+                localStorage.setItem('pramuka_sordu_auth', 'true');
+                if (loginAlertLanding) loginAlertLanding.classList.add('hidden');
+                formLoginLanding.reset();
+                updateAuthUI();
+                loadData();
+            } else {
+                if (loginAlertTextLanding) loginAlertTextLanding.textContent = 'Username atau Password salah!';
+                if (loginAlertLanding) loginAlertLanding.classList.remove('hidden');
+            }
+        });
+    }
 });

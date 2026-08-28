@@ -1042,3 +1042,126 @@ body {
         margin: 10mm 10mm 8mm 10mm;
     }
 }
+
+/* Fullscreen Initial Login Landing Screen */
+.login-landing-wrapper {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: linear-gradient(135deg, #1C1917 0%, #3C2A21 50%, #5D4037 100%);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 99999;
+    padding: 20px;
+}
+
+.login-landing-wrapper.hidden {
+    display: none !important;
+}
+
+.login-landing-card {
+    background: rgba(255, 255, 255, 0.96);
+    backdrop-filter: blur(16px);
+    width: 100%;
+    max-width: 440px;
+    border-radius: 20px;
+    padding: 32px 28px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.2);
+    animation: fadeInScale 0.4s ease-out;
+}
+
+@keyframes fadeInScale {
+    from {
+        opacity: 0;
+        transform: scale(0.95) translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+.landing-header {
+    text-align: center;
+    margin-bottom: 24px;
+}
+
+.landing-logo {
+    width: 64px;
+    height: 64px;
+    background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
+    color: white;
+    font-size: 30px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 14px;
+    box-shadow: 0 8px 16px rgba(93, 64, 55, 0.3);
+}
+
+.landing-header h2 {
+    font-size: 24px;
+    font-weight: 800;
+    color: var(--primary-color);
+    margin-bottom: 4px;
+}
+
+.landing-header p {
+    font-size: 13px;
+    color: var(--text-muted);
+    margin-bottom: 12px;
+}
+
+.landing-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--primary-light);
+    color: var(--primary-color);
+    font-weight: 700;
+    font-size: 12px;
+    padding: 6px 14px;
+    border-radius: 20px;
+    border: 1px solid rgba(93, 64, 55, 0.15);
+}
+
+.landing-form .form-group {
+    margin-bottom: 18px;
+}
+
+.landing-form label {
+    font-weight: 600;
+    font-size: 13px;
+    color: var(--text-main);
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.btn-block {
+    width: 100%;
+}
+
+.btn-lg {
+    padding: 14px 20px;
+    font-size: 15px;
+    font-weight: 700;
+    border-radius: 12px;
+}
+
+.landing-footer-note {
+    margin-top: 20px;
+    text-align: center;
+    font-size: 11px;
+    color: #78716C;
+    line-height: 1.4;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+}
