@@ -36,14 +36,22 @@ class DatabaseService {
 
     static async save(item) {
         try {
-            const isEdit = item.id && !item.id.startsWith('seed-');
+            // Check if item.id is a valid 24-character hex MongoDB ObjectId
+            const isValidMongoId = item.id && /^[0-9a-fA-F]{24}$/.test(String(item.id));
+            const isEdit = Boolean(isValidMongoId);
             const url = isEdit ? `/api/latihan?id=${item.id}` : '/api/latihan';
             const method = isEdit ? 'PUT' : 'POST';
+
+            const payload = { ...item };
+            if (!isValidMongoId) {
+                delete payload.id;
+                delete payload._id;
+            }
 
             const res = await fetch(url, {
                 method: method,
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(item)
+                body: JSON.stringify(payload)
             });
 
             if (res.ok) {
@@ -53,6 +61,8 @@ class DatabaseService {
                     await this.saveLocal(savedItem);
                     return savedItem;
                 }
+            } else {
+                console.error("MongoDB API error status:", res.status);
             }
         } catch (err) {
             console.warn("Error saving to MongoDB API, saving locally:", err);
@@ -737,15 +747,17 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
 
-        const id = editId.value || 'lat-' + Date.now();
         const itemData = {
-            id: id,
             tanggal: inputTanggal.value,
             tahunPelajaran: inputTahunPelajaran.value.trim(),
             uraian: inputUraian.value.trim(),
             foto1: tempFoto1,
             foto2: tempFoto2
         };
+
+        if (editId.value) {
+            itemData.id = editId.value;
+        }
 
         await DatabaseService.save(itemData);
         closeModal();
