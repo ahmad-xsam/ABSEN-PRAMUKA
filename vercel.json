@@ -1,8 +1,4 @@
 {
   "version": 2,
-  "name": "absen-pramuka",
-  "cleanUrls": true,
-  "rewrites": [
-    { "source": "/api/latihan", "destination": "/api/latihan.js" }
-  ]
+  "name": "absen-pramuka"
 }

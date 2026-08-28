@@ -1,12 +1,25 @@
 {
   "name": "pramuka-sordu",
-  "version": "1.0.0",
-  "description": "Aplikasi Rekap Latihan Pramuka Sordu dengan Backend MongoDB Atlas",
-  "main": "api/latihan.js",
+  "version": "2.0.0",
+  "private": true,
   "scripts": {
-    "start": "node api/latihan.js"
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
   },
   "dependencies": {
-    "mongoose": "^8.0.0"
+    "lucide-react": "^0.344.0",
+    "mongoose": "^8.2.0",
+    "next": "^14.1.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "sass": "^1.71.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.20",
+    "@types/react": "^18.2.58",
+    "@types/react-dom": "^18.2.19",
+    "typescript": "^5.3.3"
   }
 }
