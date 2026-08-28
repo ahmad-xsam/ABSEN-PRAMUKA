@@ -723,6 +723,19 @@ body {
     text-align: center;
 }
 
+.print-page {
+    box-sizing: border-box;
+    page-break-after: always;
+    break-after: page;
+    margin-bottom: 20px;
+}
+
+.print-page:last-child {
+    page-break-after: auto;
+    break-after: auto;
+    margin-bottom: 0;
+}
+
 .print-doc-grid {
     display: flex;
     gap: 6px;
@@ -733,7 +746,7 @@ body {
 
 .print-doc-grid img {
     width: 49%;
-    height: 195px;
+    height: 145px;
     object-fit: cover;
     border: 1px solid #000000;
     display: block;
@@ -755,10 +768,18 @@ body {
         top: 0;
         width: 100%;
         margin: 0;
-        padding: 10mm;
+        padding: 8mm;
+    }
+    .print-page {
+        page-break-after: always;
+        break-after: page;
+    }
+    .print-page:last-child {
+        page-break-after: auto;
+        break-after: auto;
     }
     @page {
         size: A4 landscape;
-        margin: 10mm;
+        margin: 8mm;
     }
 }

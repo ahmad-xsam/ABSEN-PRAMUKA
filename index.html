@@ -243,28 +243,8 @@
         </div>
     </div>
 
-    <!-- HIDDEN PRINT / PDF REPORT CONTAINER (STRICT MATCH TO THE PRINT TEMPLATE IMAGE) -->
-    <div id="printArea" class="print-area">
-        <div class="print-header">
-            <h1 class="print-title">LAPORAN KEGIATAN EKSTRAKURIKULER</h1>
-            <h1 class="print-title" id="printJudulBulan">PRAMUKA BULAN AGUSTUS</h1>
-            <h1 class="print-title" id="printJudulTahun">TAHUN PELAJARAN 2026-2027</h1>
-        </div>
-
-        <table class="print-table">
-            <thead>
-                <tr>
-                    <th class="col-no">No</th>
-                    <th class="col-tanggal">Hari, Tanggal</th>
-                    <th class="col-uraian">Uraian Kegiatan</th>
-                    <th class="col-dokumentasi">Dokumentasi</th>
-                </tr>
-            </thead>
-            <tbody id="printTableBody">
-                <!-- Rows injected dynamically for PDF generation -->
-            </tbody>
-        </table>
-    </div>
+    <!-- HIDDEN PRINT / PDF REPORT CONTAINER (DYNAMIC A4 LANDSCAPE PAGES) -->
+    <div id="printArea" class="print-area"></div>
 
     <script src="app.js"></script>
 </body>

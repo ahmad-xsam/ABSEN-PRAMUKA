@@ -312,49 +312,93 @@ function renderApp() {
     renderPrintTable(filteredList);
 }
 
-// Render Hidden Container specifically formatted for PDF / Print Output
+// Render Hidden Container specifically formatted for PDF / Print Output (Strict 2 Days = 4 Photos per Page)
 function renderPrintTable(filteredList) {
-    const printJudulBulan = document.getElementById('printJudulBulan');
-    const printJudulTahun = document.getElementById('printJudulTahun');
-    const printTableBody = document.getElementById('printTableBody');
-
+    const printArea = document.getElementById('printArea');
     const monthIndex = parseInt(filterBulan.value, 10) - 1;
     const namaBulanCaps = MONTHS_ID[monthIndex].toUpperCase();
     const tahunPelajaranStr = filterTahunPelajaran.value.trim();
 
-    printJudulBulan.textContent = `PRAMUKA BULAN ${namaBulanCaps}`;
-    printJudulTahun.textContent = `TAHUN PELAJARAN ${tahunPelajaranStr}`;
-
-    printTableBody.innerHTML = '';
+    printArea.innerHTML = '';
 
     if (filteredList.length === 0) {
-        printTableBody.innerHTML = `
-            <tr>
-                <td colspan="4" style="text-align: center; padding: 20px;">
-                    Tidak ada data rekap latihan pada Bulan ${MONTHS_ID[monthIndex]} Tahun Pelajaran ${tahunPelajaranStr}.
-                </td>
-            </tr>
+        printArea.innerHTML = `
+            <div class="print-page">
+                <div class="print-header">
+                    <h1 class="print-title">LAPORAN KEGIATAN EKSTRAKURIKULER</h1>
+                    <h1 class="print-title">PRAMUKA BULAN ${namaBulanCaps}</h1>
+                    <h1 class="print-title">TAHUN PELAJARAN ${tahunPelajaranStr}</h1>
+                </div>
+                <table class="print-table">
+                    <thead>
+                        <tr>
+                            <th class="col-no">No</th>
+                            <th class="col-tanggal">Hari, Tanggal</th>
+                            <th class="col-uraian">Uraian Kegiatan</th>
+                            <th class="col-dokumentasi">Dokumentasi</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td colspan="4" style="text-align: center; padding: 30px;">
+                                Tidak ada data rekap latihan pada Bulan ${MONTHS_ID[monthIndex]} Tahun Pelajaran ${tahunPelajaranStr}.
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
         `;
         return;
     }
 
-    filteredList.forEach((item, index) => {
-        const tr = document.createElement('tr');
-        const formattedDate = formatTanggalIndo(item.tanggal);
+    // Chunk list into pages of max 2 items per page (2 entries = 4 photos per page)
+    const itemsPerPage = 2;
+    for (let i = 0; i < filteredList.length; i += itemsPerPage) {
+        const pageItems = filteredList.slice(i, i + itemsPerPage);
+        const pageDiv = document.createElement('div');
+        pageDiv.className = 'print-page';
 
-        tr.innerHTML = `
-            <td class="col-no">${index + 1}.</td>
-            <td class="col-tanggal">${formattedDate}</td>
-            <td class="col-uraian">${escapeHtml(item.uraian)}</td>
-            <td class="col-dokumentasi">
-                <div class="print-doc-grid">
-                    <img src="${item.foto1}" alt="Dokumentasi 1">
-                    <img src="${item.foto2}" alt="Dokumentasi 2">
-                </div>
-            </td>
+        let rowsHtml = '';
+        pageItems.forEach((item, pageIndex) => {
+            const globalIndex = i + pageIndex + 1;
+            const formattedDate = formatTanggalIndo(item.tanggal);
+            rowsHtml += `
+                <tr>
+                    <td class="col-no">${globalIndex}.</td>
+                    <td class="col-tanggal">${formattedDate}</td>
+                    <td class="col-uraian">${escapeHtml(item.uraian)}</td>
+                    <td class="col-dokumentasi">
+                        <div class="print-doc-grid">
+                            <img src="${item.foto1}" alt="Dokumentasi 1">
+                            <img src="${item.foto2}" alt="Dokumentasi 2">
+                        </div>
+                    </td>
+                </tr>
+            `;
+        });
+
+        pageDiv.innerHTML = `
+            <div class="print-header">
+                <h1 class="print-title">LAPORAN KEGIATAN EKSTRAKURIKULER</h1>
+                <h1 class="print-title">PRAMUKA BULAN ${namaBulanCaps}</h1>
+                <h1 class="print-title">TAHUN PELAJARAN ${tahunPelajaranStr}</h1>
+            </div>
+            <table class="print-table">
+                <thead>
+                    <tr>
+                        <th class="col-no">No</th>
+                        <th class="col-tanggal">Hari, Tanggal</th>
+                        <th class="col-uraian">Uraian Kegiatan</th>
+                        <th class="col-dokumentasi">Dokumentasi</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${rowsHtml}
+                </tbody>
+            </table>
         `;
-        printTableBody.appendChild(tr);
-    });
+        printArea.appendChild(pageDiv);
+    }
 }
 
 // Form Handlers & Modals
